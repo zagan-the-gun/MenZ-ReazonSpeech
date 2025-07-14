@@ -1,0 +1,31 @@
+# Core dependencies
+torch>=2.0.0
+torchaudio>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+librosa>=0.10.0
+soundfile>=0.12.0
+
+# NeMo dependencies
+nemo_toolkit[asr]>=1.21.0
+omegaconf>=2.3.0
+hydra-core>=1.3.0
+pytorch-lightning>=2.0.0
+
+# Audio processing
+webrtcvad>=2.0.10
+pydub>=0.25.0
+sounddevice>=0.4.6
+
+# Utilities
+tqdm>=4.65.0
+requests>=2.31.0
+huggingface_hub>=0.16.0
+
+# Development dependencies
+pytest>=7.4.0
+black>=23.0.0
+flake8>=6.0.0
+
+# Optional: For better performance
+numba>=0.57.0 
