@@ -63,21 +63,39 @@ class SileroVAD:
                 self.model = load_silero_vad()
                 print("Silero VAD loaded from silero-vad package")
                 return
-            except (ImportError, AttributeError):
-                pass
+            except (ImportError, AttributeError, FileNotFoundError, RuntimeError) as e:
+                print(f"silero-vad package failed: {e}")
             
             # 方法2: PyTorch Hubから
+            try:
+                self.model, self.utils = torch.hub.load(
+                    repo_or_dir='snakers4/silero-vad',
+                    model='silero_vad',
+                    force_reload=False,
+                    trust_repo=True
+                )
+                print("Silero VAD loaded from PyTorch Hub")
+                return
+            except Exception as e:
+                print(f"PyTorch Hub failed: {e}")
+            
+            # 方法3: 強制再ダウンロード
+            print("Forcing Silero VAD download...")
             self.model, self.utils = torch.hub.load(
                 repo_or_dir='snakers4/silero-vad',
                 model='silero_vad',
-                force_reload=False,
+                force_reload=True,
                 trust_repo=True
             )
-            print("Silero VAD loaded from PyTorch Hub")
+            print("Silero VAD loaded with force reload")
             
         except Exception as e:
-            print(f"Failed to load Silero VAD: {e}")
-            raise ImportError("Could not load Silero VAD model")
+            print(f"All VAD methods failed: {e}")
+            raise ImportError(
+                "Silero VAD is required but could not be loaded. "
+                "Please run setup.bat again or install manually: "
+                "pip install silero-vad && python -c \"import torch; torch.hub.load('snakers4/silero-vad', 'silero_vad', trust_repo=True)\""
+            )
     
     def is_speech(self, audio_bytes: bytes, sample_rate: int) -> bool:
         """
@@ -95,6 +113,10 @@ class SileroVAD:
         
         if len(audio_data) == 0:
             return False
+        
+        # Silero VADが必須
+        if self.model is None:
+            raise RuntimeError("Silero VAD model is not loaded. Please run setup.bat again.")
         
         # サンプリングレート調整（必要に応じて）
         if sample_rate != self.sampling_rate:
@@ -135,8 +157,7 @@ class SileroVAD:
             
         except Exception as e:
             print(f"Silero VAD error: {e}")
-            # エラー時は保守的に音声ありと判定
-            return True
+            raise RuntimeError(f"Silero VAD processing failed: {e}. Please check your installation.")
     
     def get_speech_confidence(self, audio_bytes: bytes, sample_rate: int) -> float:
         """
