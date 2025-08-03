@@ -175,12 +175,12 @@ def get_device_info() -> dict:
 
 
 
-def filter_text(text: str, min_length: int = 2, exclude_whitespace_only: bool = True) -> Optional[str]:
+def filter_text(text: str, min_length: int = 3, exclude_whitespace_only: bool = True) -> Optional[str]:
     """基本的なテキストフィルタリング（品質向上用）
     
     Args:
         text: フィルタリング対象のテキスト
-        min_length: 最小文字数（これ以下は除外）
+        min_length: 最小文字数（これ未満は除外）
         exclude_whitespace_only: 空白のみの文字列を除外するかどうか
         
     Returns:
