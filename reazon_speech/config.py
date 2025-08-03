@@ -27,7 +27,7 @@ class ModelConfig:
     
     # 推論設定
     batch_size: int = 1
-    device: str = "auto"  # "auto", "cpu", "cuda"
+    device: str = "auto"  # "auto", "cpu", "cuda", "cuda:0", "cuda:1", etc.
     
     # 音声検出設定
     vad_threshold: float = 0.3  # VAD閾値
@@ -60,7 +60,7 @@ class ModelConfig:
         # キャッシュディレクトリの作成
         os.makedirs(self.cache_dir, exist_ok=True)
         
-        # デバイスの自動選択
+        # デバイスの自動選択と検証
         if self.device == "auto":
             import torch
             if torch.cuda.is_available():
@@ -69,6 +69,22 @@ class ModelConfig:
                 self.device = "mps"
             else:
                 self.device = "cpu"
+        
+        # GPU番号指定の検証
+        if self.device.startswith("cuda:"):
+            import torch
+            if not torch.cuda.is_available():
+                print(f"警告: CUDAが利用できません。CPUに変更します。")
+                self.device = "cpu"
+            else:
+                try:
+                    gpu_id = int(self.device.split(":")[1])
+                    if gpu_id >= torch.cuda.device_count():
+                        print(f"警告: GPU {gpu_id}は存在しません。GPU 0に変更します。")
+                        self.device = "cuda:0"
+                except (ValueError, IndexError):
+                    print(f"警告: 無効なGPU指定 '{self.device}'。cudaに変更します。")
+                    self.device = "cuda"
     
     @classmethod
     def from_dict(cls, config_dict: dict) -> "ModelConfig":

@@ -37,8 +37,18 @@ def main():
   # 詳細出力モード
   python main.py --verbose
 
-  # デバイス情報を表示
+  # デバイス情報を表示（利用可能なGPU一覧も表示）
   python main.py --info
+
+  # GPU設定
+  python main.py --device-type auto        # 自動選択（推奨）
+  python main.py --device-type cuda        # デフォルトGPU使用
+  python main.py --device-type cuda:0      # GPU 0を指定
+  python main.py --device-type cuda:1      # GPU 1を指定
+  python main.py --device-type cpu         # CPU使用
+
+  # GPU番号指定（別の方法）
+  python main.py --device-type cuda --gpu-id 1
 
   # カスタム設定
   python main.py --sample-rate 16000 --vad-threshold 0.5
@@ -94,9 +104,14 @@ def main():
     
     parser.add_argument(
         "--device-type",
-        choices=["auto", "cpu", "cuda"],
         default="auto",
-        help="使用デバイス（デフォルト: auto）"
+        help="使用デバイス（例: auto, cpu, cuda, cuda:0, cuda:1）"
+    )
+    
+    parser.add_argument(
+        "--gpu-id",
+        type=int,
+        help="使用するGPU番号（0, 1, 2など）。--device-type cudaと組み合わせて使用"
     )
     
     parser.add_argument(
@@ -148,10 +163,8 @@ def main():
     
     # デバイス情報の表示
     if args.info:
-        device_info = get_device_info()
-        print("=== デバイス情報 ===")
-        for key, value in device_info.items():
-            print(f"{key}: {value}")
+        from .utils import print_gpu_info
+        print_gpu_info()
         return
     
     # 設定の読み込み
@@ -168,6 +181,9 @@ def main():
     # コマンドライン引数で設定を上書き
     if args.device_type != "auto":
         config.device = args.device_type
+        # GPU番号が指定されている場合
+        if args.gpu_id is not None and args.device_type == "cuda":
+            config.device = f"cuda:{args.gpu_id}"
     elif config.device == "auto":
         # autoが指定された場合、自動的に適切なデバイスを選択
         import torch

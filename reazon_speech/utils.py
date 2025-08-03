@@ -162,16 +162,71 @@ def get_device_info() -> dict:
     }
     
     if torch.cuda.is_available():
+        gpu_count = torch.cuda.device_count()
+        gpus = []
+        
+        for i in range(gpu_count):
+            gpu_props = torch.cuda.get_device_properties(i)
+            gpu_info = {
+                "id": i,
+                "name": torch.cuda.get_device_name(i),
+                "memory_total": gpu_props.total_memory,
+                "memory_total_gb": round(gpu_props.total_memory / (1024**3), 2),
+                "compute_capability": f"{gpu_props.major}.{gpu_props.minor}",
+                "multiprocessor_count": gpu_props.multiprocessor_count
+            }
+            gpus.append(gpu_info)
+        
         info.update({
             "device": "cuda",
             "cuda_version": torch.version.cuda,
-            "gpu_count": torch.cuda.device_count(),
+            "gpu_count": gpu_count,
             "current_gpu": torch.cuda.current_device(),
-            "gpu_name": torch.cuda.get_device_name(0),
-            "gpu_memory": torch.cuda.get_device_properties(0).total_memory
+            "gpus": gpus
         })
     
+    # MPS (Apple Silicon) サポートチェック
+    if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        info["mps_available"] = True
+    else:
+        info["mps_available"] = False
+    
     return info
+
+
+def print_gpu_info():
+    """GPU情報を見やすく表示"""
+    info = get_device_info()
+    
+    print("=== デバイス情報 ===")
+    print(f"CUDA利用可能: {info['cuda_available']}")
+    print(f"MPS利用可能: {info['mps_available']}")
+    
+    if info['cuda_available']:
+        print(f"CUDAバージョン: {info['cuda_version']}")
+        print(f"GPU数: {info['gpu_count']}")
+        print(f"現在のGPU: {info['current_gpu']}")
+        print()
+        
+        for gpu in info['gpus']:
+            print(f"GPU {gpu['id']}: {gpu['name']}")
+            print(f"  メモリ: {gpu['memory_total_gb']} GB")
+            print(f"  コンピュート能力: {gpu['compute_capability']}")
+            print(f"  マルチプロセッサ数: {gpu['multiprocessor_count']}")
+            print()
+        
+        print("使用例:")
+        print("  --device-type auto        # 自動選択")
+        print("  --device-type cuda        # デフォルトGPU")
+        for gpu in info['gpus']:
+            print(f"  --device-type cuda:{gpu['id']}      # GPU {gpu['id']} ({gpu['name']})")
+        print("  --device-type cpu         # CPU使用")
+    else:
+        print("GPUは利用できません")
+        print("使用例:")
+        print("  --device-type cpu         # CPU使用")
+    
+    print("=" * 40)
 
 
 
