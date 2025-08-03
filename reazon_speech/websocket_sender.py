@@ -97,8 +97,28 @@ class WebSocketSender:
         if not text.strip():
             return
         
+        # 接続が切れている場合、再接続を待つ
         if not self.is_connected or not self.websocket:
-            return
+            if self.config.show_debug:
+                print("WebSocket接続が切れています。再接続を待機中...")
+            
+            # 最大5秒間、再接続を待つ
+            max_wait_time = 5.0
+            wait_interval = 0.1
+            waited_time = 0.0
+            
+            while waited_time < max_wait_time and (not self.is_connected or not self.websocket):
+                time.sleep(wait_interval)
+                waited_time += wait_interval
+            
+            # まだ接続できていない場合は送信をスキップ
+            if not self.is_connected or not self.websocket:
+                if self.config.show_debug:
+                    print("WebSocket再接続に失敗しました。メッセージ送信をスキップします。")
+                return
+            else:
+                if self.config.show_debug:
+                    print("WebSocket再接続が完了しました。メッセージを送信します。")
         
         try:
             message = self._format_message(text)
@@ -115,6 +135,41 @@ class WebSocketSender:
                 print(f"WebSocket送信エラー: {e}")
                 import traceback
                 traceback.print_exc()
+            
+            # 接続エラー時は状態を更新して再接続を試行
+            self.is_connected = False
+            self.websocket = None
+            
+            if self.config.show_debug:
+                print("WebSocket接続が切れました。再接続を待機中...")
+            
+            # 最大5秒間、再接続を待つ
+            max_wait_time = 5.0
+            wait_interval = 0.1
+            waited_time = 0.0
+            
+            while waited_time < max_wait_time and (not self.is_connected or not self.websocket):
+                time.sleep(wait_interval)
+                waited_time += wait_interval
+            
+            # 再接続が成功した場合、再度送信を試行
+            if self.is_connected and self.websocket:
+                if self.config.show_debug:
+                    print("WebSocket再接続が完了しました。メッセージを再送信します。")
+                try:
+                    message = self._format_message(text)
+                    if self.loop and not self.loop.is_closed():
+                        future = asyncio.run_coroutine_threadsafe(
+                            self._send_message_simple(message), 
+                            self.loop
+                        )
+                        future.result(timeout=2.0)
+                except Exception as retry_e:
+                    if self.config.show_debug:
+                        print(f"WebSocket再送信でもエラー: {retry_e}")
+            else:
+                if self.config.show_debug:
+                    print("WebSocket再接続に失敗しました。メッセージ送信をスキップします。")
 
     async def _send_message_simple(self, message: str):
         """メッセージ送信"""
