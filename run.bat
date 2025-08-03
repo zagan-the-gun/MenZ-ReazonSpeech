@@ -13,9 +13,53 @@ if not exist "venv" (
 
 echo Activating virtual environment...
 call venv\Scripts\activate.bat
+if errorlevel 1 (
+    echo.
+    echo ERROR: Failed to activate virtual environment
+    echo Please check if setup.bat completed successfully
+    echo.
+    pause
+    exit /b 1
+)
+
+echo Checking Python environment...
+python --version
+if errorlevel 1 (
+    echo.
+    echo ERROR: Python not found in virtual environment
+    echo Please run setup.bat again
+    echo.
+    pause
+    exit /b 1
+)
+
+echo Checking reazon_speech module...
+python -c "import reazon_speech; print('Module found')"
+if errorlevel 1 (
+    echo.
+    echo ERROR: reazon_speech module not found
+    echo Installation may be incomplete
+    echo Please run setup.bat again
+    echo.
+    pause
+    exit /b 1
+)
 
 REM Start real-time recognition
+echo.
 echo Starting real-time speech recognition...
 echo Press Ctrl+C to exit
 echo.
-python -m reazon_speech.main %* 
+python -m reazon_speech.main %*
+if errorlevel 1 (
+    echo.
+    echo ERROR: Application failed to start
+    echo Check the error messages above
+    echo.
+    pause
+    exit /b 1
+)
+
+echo.
+echo Application ended normally
+pause 
