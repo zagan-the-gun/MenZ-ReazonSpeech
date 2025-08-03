@@ -1,89 +1,90 @@
 @echo off
-echo MenZ-ReazonSpeech セットアップスクリプト (Windows)
-echo ================================================
+chcp 65001 >nul
+echo MenZ-ReazonSpeech Setup Script (Windows)
+echo ==========================================
 
-REM Pythonのバージョンチェック
+REM Check Python version
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo エラー: Pythonがインストールされていません
-    echo https://www.python.org/downloads/ からPython 3.12以上をインストールしてください
+    echo ERROR: Python is not installed
+    echo Please install Python 3.12 or higher from https://www.python.org/downloads/
     pause
     exit /b 1
 )
 
-echo Pythonのバージョンを確認中...
+echo Checking Python version...
 python --version
 
-REM Python 3.12以上かチェック
+REM Check if Python 3.12 or higher
 for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYTHON_VERSION=%%i
 for /f "tokens=1 delims=." %%i in ("%PYTHON_VERSION%") do set PYTHON_MAJOR=%%i
 for /f "tokens=2 delims=." %%i in ("%PYTHON_VERSION%") do set PYTHON_MINOR=%%i
 
 if %PYTHON_MAJOR% LSS 3 (
-    echo エラー: Python 3.12以上が必要です
+    echo ERROR: Python 3.12 or higher is required
     pause
     exit /b 1
 )
 
 if %PYTHON_MAJOR% EQU 3 (
     if %PYTHON_MINOR% LSS 12 (
-        echo エラー: Python 3.12以上が必要です
+        echo ERROR: Python 3.12 or higher is required
         pause
         exit /b 1
     )
 )
 
-REM 仮想環境の作成
+REM Create virtual environment
 echo.
-echo 仮想環境を作成中...
+echo Creating virtual environment...
 python -m venv venv
 if errorlevel 1 (
-    echo エラー: 仮想環境の作成に失敗しました
+    echo ERROR: Failed to create virtual environment
     pause
     exit /b 1
 )
 
-REM 仮想環境のアクティベート
-echo 仮想環境をアクティベート中...
+REM Activate virtual environment
+echo Activating virtual environment...
 call venv\Scripts\activate.bat
 
-REM pip、setuptools、wheelのアップグレード
-echo pip、setuptools、wheelをアップグレード中...
+REM Upgrade pip, setuptools, wheel
+echo Upgrading pip, setuptools, wheel...
 python -m pip install --upgrade pip setuptools wheel
 
-REM 依存関係のインストール
+REM Install dependencies
 echo.
-echo 依存関係をインストール中...
+echo Installing dependencies...
 pip install -r requirements.txt
 if errorlevel 1 (
-    echo エラー: 依存関係のインストールに失敗しました
+    echo ERROR: Failed to install dependencies
     pause
     exit /b 1
 )
 
-REM NeMoのインストール
+REM Install NeMo
 echo.
-echo NeMoをインストール中...
+echo Installing NeMo...
 pip install "nemo_toolkit[asr]>=1.21.0"
 if errorlevel 1 (
-    echo 警告: NeMoのインストールに失敗しました
-    echo CPU版を試行中...
+    echo WARNING: Failed to install NeMo
+    echo Trying CPU version...
     pip install "nemo_toolkit[asr]>=1.21.0" --extra-index-url https://download.pytorch.org/whl/cpu
 )
 
 echo.
-echo セットアップが完了しました！
+echo Setup completed successfully!
 echo.
-echo 使用方法:
-echo 基本的な実行（マイク選択あり）:
+echo Usage:
+echo Basic execution (with microphone selection):
 echo   run.bat
 echo.
-echo オプション付き実行:
-echo   run.bat --show-level    # 音声レベル表示付き
-echo   run.bat --verbose       # 詳細出力
-echo   run.bat --info          # デバイス情報を表示
+echo Execution with options:
+echo   run.bat --show-level    # Show audio level
+echo   run.bat --verbose       # Verbose output
+echo   run.bat --info          # Show device info
 echo.
-echo 直接実行:
+echo Direct execution:
 echo   python -m reazon_speech.main
 echo   python -m reazon_speech.cli audio.wav
 echo.
