@@ -52,24 +52,48 @@ REM Upgrade pip, setuptools, wheel
 echo Upgrading pip, setuptools, wheel...
 python -m pip install --upgrade pip setuptools wheel
 
-REM Install dependencies
+REM Ask user for GPU support
 echo.
-echo Installing dependencies...
-pip install -r requirements.txt
-if errorlevel 1 (
-    echo ERROR: Failed to install dependencies
-    pause
-    exit /b 1
-)
+echo Do you want to install GPU (CUDA) support? (y/n)
+set /p GPU_SUPPORT="Enter choice: "
 
-REM Install NeMo
-echo.
-echo Installing NeMo...
-pip install "nemo_toolkit[asr]>=1.21.0"
-if errorlevel 1 (
-    echo WARNING: Failed to install NeMo
-    echo Trying CPU version...
-    pip install "nemo_toolkit[asr]>=1.21.0" --extra-index-url https://download.pytorch.org/whl/cpu
+if /i "%GPU_SUPPORT%"=="y" (
+    echo Installing GPU version with CUDA support...
+    echo Installing PyTorch with CUDA...
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+    if errorlevel 1 (
+        echo WARNING: Failed to install CUDA version, falling back to CPU
+        goto CPU_INSTALL
+    )
+    
+    echo Installing other dependencies...
+    pip install numpy scipy librosa soundfile omegaconf hydra-core pytorch-lightning webrtcvad pydub sounddevice websockets tqdm requests huggingface_hub numba pytest black flake8
+    
+    echo Installing NeMo with GPU support...
+    pip install "nemo_toolkit[asr]>=1.21.0"
+    if errorlevel 1 (
+        echo WARNING: Failed to install NeMo with GPU support
+        echo Trying CPU version...
+        pip install "nemo_toolkit[asr]>=1.21.0" --extra-index-url https://download.pytorch.org/whl/cpu
+    )
+) else (
+    :CPU_INSTALL
+    echo Installing CPU version...
+    echo Installing dependencies...
+    pip install -r requirements.txt
+    if errorlevel 1 (
+        echo ERROR: Failed to install dependencies
+        pause
+        exit /b 1
+    )
+    
+    echo Installing NeMo...
+    pip install "nemo_toolkit[asr]>=1.21.0"
+    if errorlevel 1 (
+        echo WARNING: Failed to install NeMo
+        echo Trying CPU version...
+        pip install "nemo_toolkit[asr]>=1.21.0" --extra-index-url https://download.pytorch.org/whl/cpu
+    )
 )
 
 echo.
