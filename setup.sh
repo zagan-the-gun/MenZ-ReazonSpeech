@@ -45,6 +45,10 @@ source venv/bin/activate
 echo "pip、setuptools、wheelをアップグレード中..."
 python -m pip install --upgrade pip setuptools wheel
 
+# ビルド環境の準備
+echo "ビルド環境を準備中..."
+pip install cython wheel setuptools-scm
+
 # 依存関係のインストール
 echo ""
 echo "依存関係をインストール中..."

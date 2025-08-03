@@ -122,32 +122,6 @@ if errorlevel 1 (
     goto WINDOWS_FIX_INSTALL
 )
 
-echo.
-echo Checking for FFmpeg...
-where ffmpeg >nul 2>&1
-if errorlevel 1 (
-    echo FFmpeg not found. Installing via conda-forge...
-    python -c "import subprocess; subprocess.run(['pip', 'install', 'conda'], check=False)"
-    python -c "import subprocess; subprocess.run(['conda', 'install', '-c', 'conda-forge', 'ffmpeg', '-y'], check=False)"
-    if errorlevel 1 (
-        echo.
-        echo WARNING: FFmpeg auto-install failed
-        echo Manual installation required for audio processing:
-        echo 1. Download FFmpeg from https://www.gyan.dev/ffmpeg/builds/
-        echo 2. Extract to C:\ffmpeg
-        echo 3. Add C:\ffmpeg\bin to PATH
-        echo.
-        echo You can also install via Chocolatey: choco install ffmpeg
-        echo Or via Scoop: scoop install ffmpeg
-        echo.
-        pause
-    ) else (
-        echo FFmpeg installed successfully
-    )
-) else (
-    echo FFmpeg found in PATH
-)
-
 goto SUCCESS
 
 :WINDOWS_FIX_MODE
@@ -320,21 +294,14 @@ echo.
 echo 1. Check Python version (requires 3.10+)
 echo    python --version
 echo.
-echo 2. Install missing lightning package:
-echo    pip install lightning pytorch-lightning
+echo 2. Try Windows Fix mode (option 2)
 echo.
-echo 3. Install FFmpeg manually:
-echo    Download from: https://www.gyan.dev/ffmpeg/builds/
-echo    Or use: choco install ffmpeg / scoop install ffmpeg
-echo.
-echo 4. Try Windows Fix mode (option 2)
-echo.
-echo 5. Install Visual C++ Build Tools:
+echo 3. Install Visual C++ Build Tools:
 echo    https://visualstudio.microsoft.com/visual-cpp-build-tools/
 echo.
-echo 6. Try Conda environment (option 4)
+echo 4. Try Conda environment (option 4)
 echo.
-echo 7. Check internet connection
+echo 5. Check internet connection
 echo.
 echo ===============================================
 pause

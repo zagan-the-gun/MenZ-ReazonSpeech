@@ -34,18 +34,12 @@ if errorlevel 1 (
 )
 
 echo Checking reazon_speech module...
-python -c "import reazon_speech; print('Module found')"
+python -c "import reazon_speech; print('Module loaded successfully')" 2>nul
 if errorlevel 1 (
     echo.
-    echo ERROR: reazon_speech module not found
-    echo Installation may be incomplete
+    echo ERROR: reazon_speech module not found or dependencies missing
     echo.
-    echo Quick fixes to try:
-    echo 1. Run setup.bat again
-    echo 2. Install missing dependencies:
-    echo    pip install lightning pytorch-lightning
-    echo 3. Check if FFmpeg is installed:
-    echo    where ffmpeg
+    echo Please run setup.bat to install dependencies
     echo.
     pause
     exit /b 1
@@ -62,10 +56,7 @@ if errorlevel 1 (
     echo ERROR: Application failed to start
     echo Check the error messages above
     echo.
-    echo Common solutions:
-    echo 1. Missing lightning: pip install lightning
-    echo 2. Missing FFmpeg: choco install ffmpeg
-    echo 3. Run setup.bat with option 2 (Windows Fix)
+    echo Please run setup.bat to fix dependencies
     echo.
     pause
     exit /b 1

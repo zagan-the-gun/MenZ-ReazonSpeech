@@ -12,7 +12,6 @@ from pathlib import Path
 import requests
 from tqdm import tqdm
 from .vad_silero import SileroVAD
-from pydub import AudioSegment
 import re
 
 
@@ -121,8 +120,18 @@ class AudioProcessor:
     def convert_audio_format(self, input_path: str, output_path: str, 
                            target_format: str = "wav") -> None:
         """音声フォーマットの変換"""
-        audio = AudioSegment.from_file(input_path)
-        audio.export(output_path, format=target_format)
+        try:
+            # libROSA + soundfileでFFmpegレス変換
+            audio, sr = librosa.load(input_path, sr=self.sample_rate)
+            sf.write(output_path, audio, self.sample_rate, format=target_format.upper())
+        except Exception as e:
+            # フォールバック: pydub使用（FFmpegが必要）
+            try:
+                from pydub import AudioSegment
+                audio = AudioSegment.from_file(input_path)
+                audio.export(output_path, format=target_format)
+            except Exception as pydub_error:
+                raise ValueError(f"音声変換に失敗: librosa error: {e}, pydub error: {pydub_error}")
 
 
 class ModelDownloader:
