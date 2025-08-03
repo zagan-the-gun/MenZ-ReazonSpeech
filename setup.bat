@@ -171,7 +171,7 @@ goto CHECK_PYTHON
 
 :LIGHTWEIGHT_INSTALL
 echo Installing core packages...
-pip install numpy scipy librosa soundfile tqdm requests
+pip install numpy scipy librosa soundfile tqdm requests silero-vad
 if errorlevel 1 (
     echo.
     echo ERROR: Failed to install core packages
@@ -224,8 +224,9 @@ if errorlevel 1 (
 pip install "omegaconf>=2.0.5" "hydra-core>=1.1" "pytorch-lightning>=1.5.0"
 
 echo.
-echo Skipped: webrtcvad, indic-numtowords
-echo Using alternative implementations
+echo Installed: Silero VAD (enterprise-grade)
+echo Skipped: webrtcvad (no longer needed), indic-numtowords
+echo Using high-performance VAD implementation
 goto SUCCESS
 
 :CONDA_MODE
@@ -276,7 +277,7 @@ echo ===============================================
 echo Setup failed. Common solutions:
 echo ===============================================
 echo.
-echo 1. Check Python version (requires 3.12+)
+echo 1. Check Python version (requires 3.10+)
 echo    python --version
 echo.
 echo 2. Check internet connection

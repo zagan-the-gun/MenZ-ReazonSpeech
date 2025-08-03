@@ -6,7 +6,7 @@ echo "================================================"
 # Pythonのバージョンチェック
 if ! command -v python3 &> /dev/null; then
     echo "エラー: Python3がインストールされていません"
-    echo "https://www.python.org/downloads/ からPython 3.12以上をインストールしてください"
+    echo "https://www.python.org/downloads/ からPython 3.10以上をインストールしてください"
     exit 1
 fi
 
@@ -19,12 +19,12 @@ PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
 PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
 
 if [ "$PYTHON_MAJOR" -lt 3 ]; then
-    echo "エラー: Python 3.12以上が必要です"
+    echo "エラー: Python 3.10以上が必要です"
     exit 1
 fi
 
-if [ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 12 ]; then
-    echo "エラー: Python 3.12以上が必要です"
+if [ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 10 ]; then
+    echo "エラー: Python 3.10以上が必要です"
     exit 1
 fi
 

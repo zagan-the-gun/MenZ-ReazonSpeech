@@ -7,7 +7,7 @@ import threading
 import time
 import queue
 from typing import Optional, Callable, List
-import webrtcvad
+from .vad_silero import SileroVAD
 import collections
 
 from .model import ReazonSpeechModel
@@ -32,7 +32,7 @@ class RealtimeTranscriber:
         self.callback = callback
         self.show_level = show_level
         self.model = ReazonSpeechModel(self.config)
-        self.audio_processor = AudioProcessor(self.config.sample_rate, self.config.vad_level)
+        self.audio_processor = AudioProcessor(self.config.sample_rate, self.config.vad_level, self.config)
         
         # WebSocket送信機能
         if self.config.websocket_enabled:
@@ -52,8 +52,21 @@ class RealtimeTranscriber:
         self.audio_queue = queue.Queue()
         self.result_queue = queue.Queue()
         
-        # VAD設定
-        self.vad = webrtcvad.Vad(self.config.vad_level)
+        # Silero VAD設定
+        threshold_map = {0: 0.3, 1: 0.4, 2: 0.5, 3: 0.6}
+        threshold = threshold_map.get(self.config.vad_level, 0.5)
+        # config.iniの設定を使用（デフォルトは上書き）
+        vad_threshold = getattr(self.config, 'silero_threshold', threshold)
+        min_speech_ms = getattr(self.config, 'min_speech_duration_ms', 30)
+        min_silence_ms = getattr(self.config, 'min_silence_duration_ms', 100)
+        
+        self.vad = SileroVAD(
+            threshold=vad_threshold, 
+            sampling_rate=self.rate,
+            min_speech_duration_ms=min_speech_ms,
+            min_silence_duration_ms=min_silence_ms
+        )
+        print(f"Real-time VAD: Using Silero VAD (threshold={vad_threshold}, min_speech={min_speech_ms}ms, min_silence={min_silence_ms}ms)")
         self.frame_duration = self.config.frame_duration_ms  # ms
         self.frame_size = int(self.rate * self.frame_duration / 1000)
         

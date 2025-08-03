@@ -11,7 +11,7 @@ from typing import List, Optional, Tuple, Union
 from pathlib import Path
 import requests
 from tqdm import tqdm
-import webrtcvad
+from .vad_silero import SileroVAD
 from pydub import AudioSegment
 import re
 
@@ -19,9 +19,29 @@ import re
 class AudioProcessor:
     """音声処理クラス"""
     
-    def __init__(self, sample_rate: int = 16000, vad_level: int = 2):
+    def __init__(self, sample_rate: int = 16000, vad_level: int = 2, config=None):
         self.sample_rate = sample_rate
-        self.vad = webrtcvad.Vad(vad_level)
+        # Silero VAD（エンタープライズグレード）
+        threshold_map = {0: 0.3, 1: 0.4, 2: 0.5, 3: 0.6}
+        threshold = threshold_map.get(vad_level, 0.5)
+        
+        # configがある場合は設定を使用
+        if config:
+            vad_threshold = getattr(config, 'silero_threshold', threshold)
+            min_speech_ms = getattr(config, 'min_speech_duration_ms', 30)
+            min_silence_ms = getattr(config, 'min_silence_duration_ms', 100)
+        else:
+            vad_threshold = threshold
+            min_speech_ms = 30
+            min_silence_ms = 100
+            
+        self.vad = SileroVAD(
+            threshold=vad_threshold, 
+            sampling_rate=sample_rate,
+            min_speech_duration_ms=min_speech_ms,
+            min_silence_duration_ms=min_silence_ms
+        )
+        print(f"Using Silero VAD (threshold={vad_threshold}, min_speech={min_speech_ms}ms, min_silence={min_silence_ms}ms)")
     
     def load_audio(self, file_path: str) -> np.ndarray:
         """音声ファイルを読み込み"""

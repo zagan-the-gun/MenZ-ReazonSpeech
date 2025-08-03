@@ -29,12 +29,17 @@ class ModelConfig:
     batch_size: int = 1
     device: str = "auto"  # "auto", "cpu", "cuda", "cuda:0", "cuda:1", etc.
     
-    # 音声検出設定
-    vad_threshold: float = 0.3  # VAD閾値
-    min_audio_level: float = 0.01  # 音声レベル最小閾値
-    pause_threshold: int = 8    # 無音継続時間（0.1秒単位）
-    phrase_threshold: int = 5   # 最小音声継続時間（0.1秒単位）
-    max_duration: float = 30.0  # 最大音声継続時間（秒）
+    # Silero VAD設定（エンタープライズグレード）
+    silero_threshold: float = 0.5           # Silero VAD閾値（0.0-1.0）
+    min_speech_duration_ms: int = 30        # 最小音声長さ（ミリ秒）
+    min_silence_duration_ms: int = 100      # 最小無音長さ（ミリ秒）
+    pause_threshold: int = 5                # 無音継続時間（0.1秒単位）YukariWhisper互換
+    phrase_threshold: int = 10              # 最小音声継続時間（0.1秒単位）YukariWhisper互換
+    max_duration: float = 30.0              # 最大音声継続時間（秒）
+    min_audio_level: float = 0.01           # 音声レベル最小閾値（後方互換性）
+    
+    # 後方互換性のため
+    vad_threshold: float = 0.5              # 旧設定との互換性用（silero_thresholdと同じ）
     
     # 出力設定
     output_format: str = "text"  # "text", "json", "srt"
@@ -126,6 +131,14 @@ class ModelConfig:
                 config.pause_threshold = parser.getint('recognizer', 'pause_threshold', fallback=config.pause_threshold)
                 config.phrase_threshold = parser.getint('recognizer', 'phrase_threshold', fallback=config.phrase_threshold)
                 config.max_duration = parser.getfloat('recognizer', 'max_duration', fallback=config.max_duration)
+            
+            # Silero VAD設定
+            if 'silero_vad' in parser:
+                config.silero_threshold = parser.getfloat('silero_vad', 'threshold', fallback=config.silero_threshold)
+                config.min_speech_duration_ms = parser.getint('silero_vad', 'min_speech_duration_ms', fallback=config.min_speech_duration_ms)
+                config.min_silence_duration_ms = parser.getint('silero_vad', 'min_silence_duration_ms', fallback=config.min_silence_duration_ms)
+                config.pause_threshold = parser.getint('silero_vad', 'pause_threshold', fallback=config.pause_threshold)
+                config.phrase_threshold = parser.getint('silero_vad', 'phrase_threshold', fallback=config.phrase_threshold)
             # 出力設定
             if 'output' in parser:
                 config.output_format = parser.get('output', 'format', fallback=config.output_format)
@@ -186,6 +199,15 @@ class ModelConfig:
             'max_duration': str(self.max_duration)
         }
         
+        # Silero VAD設定
+        parser['silero_vad'] = {
+            'threshold': str(self.silero_threshold),
+            'min_speech_duration_ms': str(self.min_speech_duration_ms),
+            'min_silence_duration_ms': str(self.min_silence_duration_ms),
+            'pause_threshold': str(self.pause_threshold),
+            'phrase_threshold': str(self.phrase_threshold)
+        }
+        
         # 出力設定
         parser['output'] = {
             'format': self.output_format,
@@ -229,11 +251,13 @@ class ModelConfig:
             "vad_level": self.vad_level,
             "batch_size": self.batch_size,
             "device": self.device,
-            "vad_threshold": self.vad_threshold,
-            "min_audio_level": self.min_audio_level,
+            "silero_threshold": self.silero_threshold,
+            "min_speech_duration_ms": self.min_speech_duration_ms,
+            "min_silence_duration_ms": self.min_silence_duration_ms,
             "pause_threshold": self.pause_threshold,
             "phrase_threshold": self.phrase_threshold,
             "max_duration": self.max_duration,
+            "min_audio_level": self.min_audio_level,
             "output_format": self.output_format,
             "language": self.language,
             "websocket_enabled": self.websocket_enabled,
