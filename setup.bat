@@ -105,13 +105,13 @@ if /i "%GPU%"=="y" (
     pip install torch torchvision torchaudio
 )
 
-echo Installing Python dependencies...
-pip install lightning
+echo Preparing build environment...
+pip install cython wheel setuptools-scm
 if errorlevel 1 (
-    echo WARNING: Failed to install lightning package
-    echo This may cause NeMo import issues
+    echo WARNING: Failed to install build dependencies
 )
 
+echo Installing dependencies...
 pip install -r requirements.txt
 if errorlevel 1 (
     echo.
