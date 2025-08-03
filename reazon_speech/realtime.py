@@ -12,7 +12,8 @@ import collections
 
 from .model import ReazonSpeechModel
 from .config import ModelConfig
-from .utils import AudioProcessor
+from .utils import AudioProcessor, filter_text
+from .websocket_sender import WebSocketSender
 
 
 class RealtimeTranscriber:
@@ -32,6 +33,14 @@ class RealtimeTranscriber:
         self.show_level = show_level
         self.model = ReazonSpeechModel(self.config)
         self.audio_processor = AudioProcessor(self.config.sample_rate, self.config.vad_level)
+        
+        # WebSocket送信機能
+        if self.config.websocket_enabled:
+            self.websocket_sender = WebSocketSender(self.config)
+        else:
+            self.websocket_sender = None
+        
+
         
         # 音声入力設定
         self.chunk_size = self.config.chunk_size
@@ -163,21 +172,31 @@ class RealtimeTranscriber:
                     level_bar = "█" * min(int(level * 20), 20)
                     print(f"\r音声レベル: {level_bar:<20} {level:6.3f}", end="", flush=True)
                 
-                if is_speech:
-                    # 音声を検出
+                # 音声レベル閾値チェックを追加
+                level_ok = level >= self.config.min_audio_level
+                
+                if is_speech and level_ok:
+                    # 音声を検出（VAD=True かつ 音声レベル十分）
                     self.speech_counter += 1
                     self.silence_counter = 0
                     self.audio_data_list.append(audio_data.flatten())
                     
                     if self.config.show_debug:
-                        print(f"\r音声検出: レベル={level:.3f}, VAD={is_speech}, カウンタ={self.speech_counter}", end="", flush=True)
+                        print(f"\r音声検出: レベル={level:.3f}, VAD={is_speech}, レベルOK={level_ok}, カウンタ={self.speech_counter}", end="", flush=True)
+                elif is_speech and not level_ok:
+                    # VAD=Trueだが音声レベル不足（キータッチ音等）
+                    self.silence_counter += 1
+                    self.audio_data_list.append(audio_data.flatten())
+                    
+                    if self.config.show_debug:
+                        print(f"\r雑音除外: レベル={level:.3f}, VAD={is_speech}, レベルOK={level_ok}, カウンタ={self.silence_counter}", end="", flush=True)
                 else:
                     # 無音を検出
                     self.silence_counter += 1
                     self.audio_data_list.append(audio_data.flatten())
                     
                     if self.config.show_debug:
-                        print(f"\r無音検出: レベル={level:.3f}, VAD={is_speech}, カウンタ={self.silence_counter}", end="", flush=True)
+                        print(f"\r無音検出: レベル={level:.3f}, VAD={is_speech}, レベルOK={level_ok}, カウンタ={self.silence_counter}", end="", flush=True)
                     
                     # 無音継続でセグメント終了
                     # ReazonSpeech（RNN-T）はWhisperの25秒制限がないため、無音継続時間のみで分割
@@ -243,6 +262,20 @@ class RealtimeTranscriber:
                     # 末尾の句読点を削除
                     processed_result = processed_result.rstrip('。')
                     
+                    # 基本的なテキストフィルタリング（品質向上）
+                    filtered_result = filter_text(
+                        processed_result, 
+                        min_length=self.config.min_length,
+                        exclude_whitespace_only=self.config.exclude_whitespace_only
+                    )
+                    if filtered_result is None:
+                        # フィルタリングされた場合は処理を終了
+                        if self.config.show_debug:
+                            print(f"基本フィルタリングにより除外: '{processed_result}'")
+                        return
+                    processed_result = filtered_result
+                    
+
                     # 翻訳テキスト表示
                     if self.config.show_transcription:
                         # 処理時間を計算
@@ -252,6 +285,10 @@ class RealtimeTranscriber:
                     
                     if self.callback:
                         self.callback(processed_result)
+                    
+                    # WebSocketで送信
+                    if self.websocket_sender:
+                        self.websocket_sender.send_text(processed_result)
                 else:
                     if self.config.show_debug:
                         print("文字起こし結果が空です")
@@ -275,6 +312,10 @@ class RealtimeTranscriber:
         
         # 時間管理の初期化
         self.start_time = time.time()
+        
+        # WebSocket送信開始
+        if self.websocket_sender:
+            self.websocket_sender.start()
         
         # ストリーム開始
         try:
@@ -317,6 +358,10 @@ class RealtimeTranscriber:
         
         if hasattr(self, 'process_thread'):
             self.process_thread.join()
+        
+        # WebSocket送信停止
+        if self.websocket_sender:
+            self.websocket_sender.stop()
         
         print("録音停止")
     

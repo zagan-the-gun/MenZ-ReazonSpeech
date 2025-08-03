@@ -42,6 +42,10 @@ def main():
 
   # カスタム設定
   python main.py --sample-rate 16000 --vad-threshold 0.5
+  
+  # WebSocket字幕送信
+  python main.py --websocket --websocket-port 50000
+  python main.py --websocket --text-type 1  # ゆかコネNEO形式
         """
     )
     
@@ -107,6 +111,32 @@ def main():
         help="デフォルト設定ファイルを作成"
     )
     
+    # WebSocket関連引数
+    parser.add_argument(
+        "--websocket",
+        action="store_true",
+        help="WebSocket字幕送信を有効にする"
+    )
+    
+    parser.add_argument(
+        "--websocket-port",
+        type=int,
+        help="WebSocket送信先ポート（デフォルト: 50000）"
+    )
+    
+    parser.add_argument(
+        "--websocket-host",
+        type=str,
+        help="WebSocket送信先ホスト（デフォルト: localhost）"
+    )
+    
+    parser.add_argument(
+        "--text-type",
+        type=int,
+        choices=[0, 1],
+        help="送信形式（0: ゆかりねっと, 1: ゆかコネNEO）"
+    )
+    
     args = parser.parse_args()
     
     # デフォルト設定ファイルの作成
@@ -128,10 +158,12 @@ def main():
     try:
         config = ModelConfig.from_ini(args.config)
         print(f"設定ファイルを読み込みました: {args.config}")
+    
     except Exception as e:
         print(f"設定ファイルの読み込みに失敗しました: {e}")
         print("デフォルト設定を使用します")
         config = ModelConfig()
+
     
     # コマンドライン引数で設定を上書き
     if args.device_type != "auto":
@@ -157,11 +189,29 @@ def main():
     if args.show_level:
         config.show_level = True
     
+    # WebSocket設定の上書き
+    if args.websocket:
+        config.websocket_enabled = True
+    if args.websocket_port is not None:
+        config.websocket_port = args.websocket_port
+    if args.websocket_host is not None:
+        config.websocket_host = args.websocket_host
+    if args.text_type is not None:
+        config.text_type = args.text_type
+    
     if args.verbose:
         print("=== MenZ-ReazonSpeech リアルタイム音声認識 ===")
         print(f"サンプルレート: {config.sample_rate}")
         print(f"VAD閾値: {config.vad_threshold}")
         print(f"デバイス: {config.device}")
+        
+        if config.websocket_enabled:
+            print(f"WebSocket送信: 有効 ({config.websocket_host}:{config.websocket_port})")
+            format_name = "ゆかりねっと" if config.text_type == 0 else "ゆかコネNEO"
+            print(f"送信形式: {format_name}")
+        else:
+            print("WebSocket送信: 無効")
+        
         print("Ctrl+C で終了")
         print("=" * 50)
     

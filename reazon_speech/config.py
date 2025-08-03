@@ -31,6 +31,7 @@ class ModelConfig:
     
     # 音声検出設定
     vad_threshold: float = 0.3  # VAD閾値
+    min_audio_level: float = 0.01  # 音声レベル最小閾値
     pause_threshold: int = 8    # 無音継続時間（0.1秒単位）
     phrase_threshold: int = 5   # 最小音声継続時間（0.1秒単位）
     max_duration: float = 30.0  # 最大音声継続時間（秒）
@@ -39,6 +40,17 @@ class ModelConfig:
     output_format: str = "text"  # "text", "json", "srt"
     language: str = "ja"
     
+    # WebSocket設定
+    websocket_enabled: bool = False   # WebSocket送信の有効/無効
+    websocket_port: int = 50000       # 送信先ポート（ゆかりねっと用）
+    websocket_host: str = "localhost" # 送信先ホスト
+    text_type: int = 0                # 送信形式（0: ゆかりねっと, 1: ゆかコネNEO）
+    
+    # 基本的なフィルタリング設定（品質向上用）
+    min_length: int = 3               # 最小文字数フィルタ（ノイズ除去）
+    exclude_whitespace_only: bool = True  # 空白のみの結果を除外
+    
+
     # デバッグ設定
     show_debug: bool = True  # デバッグ情報表示（音声レベル、プログレスバー、デバッグ情報）
     show_transcription: bool = True  # 翻訳テキスト表示
@@ -94,6 +106,7 @@ class ModelConfig:
             # 音声検出設定
             if 'recognizer' in parser:
                 config.vad_threshold = parser.getfloat('recognizer', 'vad_threshold', fallback=config.vad_threshold)
+                config.min_audio_level = parser.getfloat('recognizer', 'min_audio_level', fallback=config.min_audio_level)
                 config.pause_threshold = parser.getint('recognizer', 'pause_threshold', fallback=config.pause_threshold)
                 config.phrase_threshold = parser.getint('recognizer', 'phrase_threshold', fallback=config.phrase_threshold)
                 config.max_duration = parser.getfloat('recognizer', 'max_duration', fallback=config.max_duration)
@@ -102,6 +115,19 @@ class ModelConfig:
                 config.output_format = parser.get('output', 'format', fallback=config.output_format)
                 config.language = parser.get('output', 'language', fallback=config.language)
             
+            # WebSocket設定
+            if 'websocket' in parser:
+                config.websocket_enabled = parser.getboolean('websocket', 'enabled', fallback=config.websocket_enabled)
+                config.websocket_port = parser.getint('websocket', 'port', fallback=config.websocket_port)
+                config.websocket_host = parser.get('websocket', 'host', fallback=config.websocket_host)
+                config.text_type = parser.getint('websocket', 'text_type', fallback=config.text_type)
+            
+            # 基本的なフィルタリング設定
+            if 'filtering' in parser:
+                config.min_length = parser.getint('filtering', 'min_length', fallback=config.min_length)
+                config.exclude_whitespace_only = parser.getboolean('filtering', 'exclude_whitespace_only', fallback=config.exclude_whitespace_only)
+            
+
             # デバッグ設定
             if 'debug' in parser:
                 config.show_debug = parser.getboolean('debug', 'show_debug', fallback=config.show_debug)
@@ -138,10 +164,10 @@ class ModelConfig:
         # 音声検出設定
         parser['recognizer'] = {
             'vad_threshold': str(self.vad_threshold),
+            'min_audio_level': str(self.min_audio_level),
             'pause_threshold': str(self.pause_threshold),
             'phrase_threshold': str(self.phrase_threshold),
-            'max_duration': str(self.max_duration),
-
+            'max_duration': str(self.max_duration)
         }
         
         # 出力設定
@@ -150,6 +176,21 @@ class ModelConfig:
             'language': self.language
         }
         
+        # WebSocket設定
+        parser['websocket'] = {
+            'enabled': str(self.websocket_enabled),
+            'port': str(self.websocket_port),
+            'host': self.websocket_host,
+            'text_type': str(self.text_type)
+        }
+        
+        # 基本的なフィルタリング設定
+        parser['filtering'] = {
+            'min_length': str(self.min_length),
+            'exclude_whitespace_only': str(self.exclude_whitespace_only)
+        }
+        
+
         # デバッグ設定
         parser['debug'] = {
             'show_debug': str(self.show_debug),
@@ -173,11 +214,18 @@ class ModelConfig:
             "batch_size": self.batch_size,
             "device": self.device,
             "vad_threshold": self.vad_threshold,
+            "min_audio_level": self.min_audio_level,
             "pause_threshold": self.pause_threshold,
             "phrase_threshold": self.phrase_threshold,
             "max_duration": self.max_duration,
             "output_format": self.output_format,
             "language": self.language,
+            "websocket_enabled": self.websocket_enabled,
+            "websocket_port": self.websocket_port,
+            "websocket_host": self.websocket_host,
+            "text_type": self.text_type,
+            "min_length": self.min_length,
+            "exclude_whitespace_only": self.exclude_whitespace_only,
             "show_debug": self.show_debug,
             "show_transcription": self.show_transcription,
         }

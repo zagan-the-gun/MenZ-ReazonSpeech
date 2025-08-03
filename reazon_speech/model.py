@@ -101,12 +101,16 @@ class ReazonSpeechModel:
             audio_tensor = torch.tensor(audio_segment, dtype=torch.float32).unsqueeze(0).to(self.config.device)
             length_tensor = torch.tensor([len(audio_segment)], dtype=torch.int32).to(self.config.device)
 
+            # モデルを評価モードに設定
+            self.model.eval()
+            
             # 推論
             with torch.no_grad():
-                # 方法1: NeMoのtranscribeメソッドを使用
+                # 方法1: NeMoのtranscribeメソッドを使用（キーワード引数で）
                 if hasattr(self.model, 'transcribe') and callable(self.model.transcribe):
                     try:
-                        result = self.model.transcribe([audio_segment])
+                        # キーワード引数として渡す
+                        result = self.model.transcribe(audio=audio_segment)
                         if result and len(result) > 0:
                             # 結果がHypothesisオブジェクトの場合はtext属性を取得
                             if hasattr(result[0], 'text'):
@@ -118,56 +122,71 @@ class ReazonSpeechModel:
                             else:
                                 return str(result[0])
                     except Exception as e:
-                        print(f"transcribeメソッドでエラー: {e}")
+                        if self.config.show_debug:
+                            print(f"transcribeメソッドでエラー: {e}")
                 
-                # 方法2: 手動でエンコーダーとデコーダーを使用
+                # 方法2: エンコーダー+デコーダーを手動で使用（キーワード引数で）
                 try:
-                    encoded, encoded_len = self.model.encoder(audio_tensor, length_tensor)
+                    # キーワード引数として渡す
+                    encoded, encoded_len = self.model.encoder(
+                        audio_signal=audio_tensor, 
+                        length=length_tensor
+                    )
                     
                     # デコーダーを使用してデコード
                     if hasattr(self.model, 'decoding') and self.model.decoding is not None:
                         # greedy_decodeメソッドを使用
                         if hasattr(self.model.decoding, 'greedy_decode'):
-                            decoded = self.model.decoding.greedy_decode(encoded, encoded_len)
+                            decoded = self.model.decoding.greedy_decode(
+                                encoder_output=encoded, 
+                                encoder_lengths=encoded_len
+                            )
                             if decoded and len(decoded) > 0:
                                 return decoded[0] if isinstance(decoded[0], str) else str(decoded[0])
                         
                         # 別のデコード方法を試す
                         elif hasattr(self.model.decoding, 'decode'):
-                            decoded = self.model.decoding.decode(encoded, encoded_len)
+                            decoded = self.model.decoding.decode(
+                                encoder_output=encoded, 
+                                encoder_lengths=encoded_len
+                            )
                             if decoded and len(decoded) > 0:
                                 return decoded[0] if isinstance(decoded[0], str) else str(decoded[0])
-                        
-                        # 直接forwardを使用
-                        else:
-                            # デコーダーとジョイントネットワークを使用
-                            decoder_output = self.model.decoder(encoded, encoded_len)
-                            joint_output = self.model.joint(encoded, decoder_output)
-                            
-                            # 最も確率の高いトークンを選択
-                            predicted_tokens = torch.argmax(joint_output, dim=-1)
-                            
-                            # トークンを文字列に変換
-                            if hasattr(self.model, 'tokenizer'):
-                                text = self.model.tokenizer.ids_to_text(predicted_tokens[0].cpu().numpy())
-                                return text
-                            else:
-                                return str(predicted_tokens[0].cpu().numpy())
                     
                 except Exception as e:
-                    print(f"手動デコードでエラー: {e}")
+                    if self.config.show_debug:
+                        print(f"手動デコードでエラー: {e}")
                 
-                # 方法3: 最もシンプルな方法
+                # 方法3: 音声ファイルを一時的に保存して処理
                 try:
-                    # モデルのforwardメソッドを直接使用
-                    output = self.model(audio_tensor, length_tensor)
-                    if hasattr(output, 'text') and output.text:
-                        return output.text[0] if isinstance(output.text, list) else output.text
-                    elif hasattr(output, 'pred_text') and output.pred_text:
-                        return output.pred_text[0] if isinstance(output.pred_text, list) else output.pred_text
+                    import tempfile
+                    import soundfile as sf
+                    
+                    # 一時ファイルに音声を保存
+                    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
+                        sf.write(temp_file.name, audio_segment, self.config.sample_rate)
+                        
+                        # ファイルパスを使って文字起こし
+                        result = self.model.transcribe(paths2audio_files=[temp_file.name])
+                        
+                        # ファイルを削除
+                        import os
+                        os.unlink(temp_file.name)
+                        
+                        if result and len(result) > 0:
+                            if hasattr(result[0], 'text'):
+                                return result[0].text
+                            elif isinstance(result[0], str):
+                                return result[0]
+                            else:
+                                return str(result[0])
+                                
                 except Exception as e:
-                    print(f"forwardメソッドでエラー: {e}")
+                    if self.config.show_debug:
+                        print(f"ファイルベース文字起こしでエラー: {e}")
                 
+                if self.config.show_debug:
+                    print("すべての文字起こし方法が失敗しました")
                 return ""
 
         except Exception as e:

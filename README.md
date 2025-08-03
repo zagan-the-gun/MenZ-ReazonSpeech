@@ -9,6 +9,10 @@ NeMoを使用してReazonSpeechを実行するための環境です。Windowsと
 - [YukariWhisper](https://github.com/tyapa0/YukariWhisper)
 - [MenZ-translation](https://github.com/zagan-the-gun/MenZ-translation)
 
+## 新機能：WebSocket字幕送信
+
+ゆかりねっとやゆかコネNEOなどのアプリケーションにリアルタイムで音声認識結果を送信できます。
+
 ## 必要な環境
 
 - Python 3.12（推奨）
@@ -69,6 +73,63 @@ pip install "nemo_toolkit[asr]>=1.21.0" --extra-index-url https://download.pytor
 `config.ini`ファイルで詳細な設定が可能です。
 
 ### 設定ファイルの作成
+
+```bash
+python main.py --create-config
+```
+
+## WebSocket字幕送信の使用方法
+
+### 基本的な使用方法
+
+WebSocket機能は設定ファイル（`config.ini`）で制御します。設定後、通常通り起動するだけです：
+
+```bash
+# 設定ファイルの通りに起動（WebSocket設定も含む）
+python main.py
+```
+
+### 設定ファイルでの設定
+
+`config.ini`を編集してWebSocket設定を永続化できます：
+
+```ini
+[websocket]
+enabled = true
+port = 50000
+host = localhost
+text_type = 0
+```
+
+### 対応形式
+
+- **text_type = 0**: ゆかりねっと形式（プレーンテキスト）
+- **text_type = 1**: ゆかコネNEO形式（JSON）
+
+### ゆかりねっとでの設定
+
+1. ゆかりねっとを起動
+2. 「設定」→「音声認識エンジン」→「サードパーティ製の音声認識エンジンを使用する」にチェック
+3. 「認識結果待ち受けポート」を50000に設定（または指定したポート）
+4. 「音声認識を開始」をクリック
+
+## 実行例
+
+```bash
+# 詳細表示で実行（WebSocket設定はconfig.iniで制御）
+python main.py --verbose
+
+# 出力例：
+# === MenZ-ReazonSpeech リアルタイム音声認識 ===
+# サンプルレート: 16000
+# VAD閾値: 0.3
+# デバイス: cuda
+# WebSocket送信: 有効 (localhost:50000)
+# 送信形式: ゆかりねっと
+# Ctrl+C で終了
+```
+
+### 従来の使い方
 
 ```bash
 # デフォルト設定ファイルを作成
