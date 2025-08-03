@@ -105,7 +105,13 @@ if /i "%GPU%"=="y" (
     pip install torch torchvision torchaudio
 )
 
-echo Installing dependencies...
+echo Installing Python dependencies...
+pip install lightning
+if errorlevel 1 (
+    echo WARNING: Failed to install lightning package
+    echo This may cause NeMo import issues
+)
+
 pip install -r requirements.txt
 if errorlevel 1 (
     echo.
@@ -115,6 +121,33 @@ if errorlevel 1 (
     pause
     goto WINDOWS_FIX_INSTALL
 )
+
+echo.
+echo Checking for FFmpeg...
+where ffmpeg >nul 2>&1
+if errorlevel 1 (
+    echo FFmpeg not found. Installing via conda-forge...
+    python -c "import subprocess; subprocess.run(['pip', 'install', 'conda'], check=False)"
+    python -c "import subprocess; subprocess.run(['conda', 'install', '-c', 'conda-forge', 'ffmpeg', '-y'], check=False)"
+    if errorlevel 1 (
+        echo.
+        echo WARNING: FFmpeg auto-install failed
+        echo Manual installation required for audio processing:
+        echo 1. Download FFmpeg from https://www.gyan.dev/ffmpeg/builds/
+        echo 2. Extract to C:\ffmpeg
+        echo 3. Add C:\ffmpeg\bin to PATH
+        echo.
+        echo You can also install via Chocolatey: choco install ffmpeg
+        echo Or via Scoop: scoop install ffmpeg
+        echo.
+        pause
+    ) else (
+        echo FFmpeg installed successfully
+    )
+) else (
+    echo FFmpeg found in PATH
+)
+
 goto SUCCESS
 
 :WINDOWS_FIX_MODE
@@ -154,6 +187,13 @@ if errorlevel 1 (
 echo Installing whisper-normalizer...
 pip install whisper-normalizer --no-deps
 pip install regex six
+
+echo Installing lightning package...
+pip install lightning --no-cache-dir
+if errorlevel 1 (
+    echo WARNING: Failed to install lightning package
+    echo This may cause NeMo import issues
+)
 
 echo Installing remaining packages...
 pip install -r requirements.txt --no-cache-dir
@@ -205,8 +245,8 @@ if /i "%GPU%"=="y" (
     )
 )
 
-echo Installing other packages...
-pip install omegaconf hydra-core pytorch-lightning pydub sounddevice websockets huggingface_hub numba
+echo Installing core libraries...
+pip install lightning omegaconf hydra-core pytorch-lightning pydub sounddevice websockets huggingface_hub numba
 if errorlevel 1 (
     echo.
     echo ERROR: Failed to install some packages
@@ -244,7 +284,7 @@ call conda activate reazon-speech
 
 echo Installing with conda...
 conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia -y
-conda install numpy scipy librosa soundfile omegaconf hydra-core pytorch-lightning -c conda-forge -y
+conda install numpy scipy librosa soundfile omegaconf hydra-core pytorch-lightning lightning ffmpeg -c conda-forge -y
 pip install webrtcvad pydub sounddevice websockets tqdm requests huggingface_hub numba
 pip install "nemo_toolkit[asr]>=1.21.0"
 
@@ -280,14 +320,21 @@ echo.
 echo 1. Check Python version (requires 3.10+)
 echo    python --version
 echo.
-echo 2. Check internet connection
+echo 2. Install missing lightning package:
+echo    pip install lightning pytorch-lightning
 echo.
-echo 3. Try Windows Fix mode (option 2)
+echo 3. Install FFmpeg manually:
+echo    Download from: https://www.gyan.dev/ffmpeg/builds/
+echo    Or use: choco install ffmpeg / scoop install ffmpeg
 echo.
-echo 4. Install Visual C++ Build Tools:
+echo 4. Try Windows Fix mode (option 2)
+echo.
+echo 5. Install Visual C++ Build Tools:
 echo    https://visualstudio.microsoft.com/visual-cpp-build-tools/
 echo.
-echo 5. Try Conda environment (option 4)
+echo 6. Try Conda environment (option 4)
+echo.
+echo 7. Check internet connection
 echo.
 echo ===============================================
 pause
