@@ -200,6 +200,10 @@ def get_device_info() -> dict:
             memory_used = torch.cuda.memory_allocated(i)
             memory_free = torch.cuda.memory_reserved(i) - memory_used
             
+            # multiprocessor_countは古いPyTorchでは属性名が異なる場合がある
+            multiprocessor_count = getattr(gpu_props, 'multiprocessor_count', 
+                                         getattr(gpu_props, 'multi_processor_count', 0))
+            
             gpu_info = {
                 "id": i,
                 "name": torch.cuda.get_device_name(i),
@@ -209,8 +213,8 @@ def get_device_info() -> dict:
                 "memory_free_mb": round(memory_free / (1024**2), 1),
                 "memory_usage_percent": round((memory_used / gpu_props.total_memory) * 100, 1),
                 "compute_capability": f"{gpu_props.major}.{gpu_props.minor}",
-                "multiprocessor_count": gpu_props.multiprocessor_count,
-                "performance_score": gpu_props.major * 10 + gpu_props.minor + gpu_props.multiprocessor_count * 0.1
+                "multiprocessor_count": multiprocessor_count,
+                "performance_score": gpu_props.major * 10 + gpu_props.minor + multiprocessor_count * 0.1
             }
             gpus.append(gpu_info)
         

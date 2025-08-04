@@ -1,53 +1,49 @@
 @echo off
-:: MenZ-ReazonSpeech GPU環境チェック Windows実行スクリプト
-::
-:: このスクリプトはWindows環境でGPU環境をチェックします。
-::
+:: MenZ-ReazonSpeech GPU Environment Check
+setlocal
 
-title MenZ-ReazonSpeech GPU環境チェック
+title MenZ-ReazonSpeech GPU Check
 
 echo.
 echo ==========================================
-echo 🔍 MenZ-ReazonSpeech GPU環境チェック
+echo MenZ-ReazonSpeech GPU Environment Check
 echo ==========================================
 echo.
 
-:: 仮想環境の確認とアクティベート
+:: Check virtual environment
 if not exist "venv" (
-    echo ⚠️ 仮想環境が見つかりません。
-    echo 基本的なチェックのみ実行します。
-    echo 完全なチェックには setup.bat を実行してセットアップを完了してください。
+    echo [WARNING] Virtual environment not found.
+    echo Running basic check only.
+    echo For complete check, run setup.bat first.
     echo.
     
-    :: 仮想環境なしで実行
     where python >nul 2>nul
     if %errorlevel% == 0 (
-        echo Pythonで環境チェックを実行中...
+        echo [INFO] Running environment check...
         python check_gpu.py
     ) else (
-        echo ❌ Pythonが見つかりません。
-        echo Pythonをインストールしてから再実行してください。
+        echo [ERROR] Python not found.
+        echo Please install Python and try again.
         pause
         exit /b 1
     )
 ) else (
-    echo ✅ 仮想環境が見つかりました。
-    echo 仮想環境をアクティベートしています...
+    echo [INFO] Virtual environment found.
+    echo [INFO] Activating virtual environment...
     
-    :: 仮想環境のアクティベート
     call venv\Scripts\activate.bat
     
-    echo GPU環境チェックを実行中...
+    echo [INFO] Running GPU environment check...
     python check_gpu.py
     
     echo.
-    echo 🔧 仮想環境を非アクティベート
+    echo [INFO] Deactivating virtual environment
     call deactivate
 )
 
 echo.
 echo ==========================================
-echo ✅ GPU環境チェック完了
+echo [SUCCESS] Check Complete
 echo ==========================================
 echo.
 pause 

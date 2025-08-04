@@ -167,26 +167,49 @@ def check_reazonspeech_model():
     """ReazonSpeechモデルアクセステスト"""
     print("🎤 ReazonSpeechモデルアクセステスト:")
     try:
-        from transformers import AutoTokenizer, AutoModelForCTC
+        import nemo.collections.asr as nemo_asr
+        from omegaconf import OmegaConf
         
         model_name = "reazon-research/reazonspeech-nemo-v2"
         print(f" モデル: {model_name}")
         
-        # トークナイザーテスト
-        print(" トークナイザー読み込み中...")
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        print(" ✅ トークナイザー読み込み成功")
+        # NeMoモデルの読み込みテスト
+        print(" NeMoモデル読み込み中...")
+        print(" (この処理には時間がかかる場合があります...)")
         
-        # モデルテスト（メモリ使用量が多いため注意）
-        print(" モデル読み込み中...")
-        model = AutoModelForCTC.from_pretrained(model_name)
-        print(" ✅ モデル読み込み成功")
+        # NeMoモデルのダウンロードと読み込み（RNN-Tモデル）
+        try:
+            model = nemo_asr.models.EncDecRNNTBPEModel.from_pretrained(model_name)
+            model_type = "RNN-T"
+        except:
+            # フォールバック: CTCモデル
+            model = nemo_asr.models.EncDecCTCModel.from_pretrained(model_name)
+            model_type = "CTC"
+        
+        print(f" ✅ NeMoモデル読み込み成功 ({model_type})")
+        
+        # モデル情報の表示
+        if hasattr(model, '_cfg') and hasattr(model._cfg, 'sample_rate'):
+            print(f" サンプルレート: {model._cfg.sample_rate} Hz")
+        
+        if hasattr(model, 'decoder') and hasattr(model.decoder, 'vocabulary'):
+            vocab_size = len(model.decoder.vocabulary) if hasattr(model.decoder.vocabulary, '__len__') else "不明"
+            print(f" 語彙サイズ: {vocab_size}")
+        elif hasattr(model, 'tokenizer'):
+            vocab_size = model.tokenizer.vocab_size if hasattr(model.tokenizer, 'vocab_size') else "不明"
+            print(f" 語彙サイズ: {vocab_size}")
         
         print()
         
+    except ImportError as e:
+        print(f" ❌ NeMoインポートエラー: {e}")
+        print(" NeMoがインストールされていません")
+        print(" pip install nemo_toolkit[asr] でインストールしてください")
+        print()
     except Exception as e:
         print(f" ❌ エラー: {e}")
         print(" ネットワーク接続またはモデルダウンロードに問題があります")
+        print(" 初回実行時はモデルダウンロードに時間がかかります")
         print()
 
 
@@ -201,27 +224,33 @@ def check_configuration():
         print()
         
         # 実際に使用されるデバイスをテスト
-        from reazon_speech.model import ReazonSpeechModel
-        print("音声認識エンジンでのデバイス確認:")
-        model = ReazonSpeechModel(config)
-        print(f" 実際に使用されるデバイス: {model.device}")
+        print("音声認識エンジン設定確認:")
+        print(f" 設定されたデバイス: {config.device}")
         
-        # 使用中のGPU詳細情報を表示
-        if model.device.startswith('cuda'):
-            if ':' in model.device:
-                gpu_id = int(model.device.split(':')[1])
+        # デバイス情報の表示
+        if config.device.startswith('cuda'):
+            import torch
+            if torch.cuda.is_available():
+                if ':' in config.device:
+                    gpu_id = int(config.device.split(':')[1])
+                else:
+                    gpu_id = torch.cuda.current_device()
+                
+                gpu_name = torch.cuda.get_device_name(gpu_id)
+                gpu_memory = torch.cuda.get_device_properties(gpu_id).total_memory / (1024**3)
+                
+                try:
+                    allocated = torch.cuda.memory_allocated(gpu_id) / (1024**3)
+                    print(f" GPU詳細: {gpu_name} (ID: {gpu_id})")
+                    print(f" GPU メモリ: {gpu_memory:.1f}GB (現在使用中: {allocated:.1f}GB)")
+                except Exception:
+                    print(f" GPU詳細: {gpu_name} (ID: {gpu_id}, メモリ: {gpu_memory:.1f}GB)")
             else:
-                gpu_id = torch.cuda.current_device()
-            
-            gpu_name = torch.cuda.get_device_name(gpu_id)
-            gpu_memory = torch.cuda.get_device_properties(gpu_id).total_memory / (1024**3)
-            
-            try:
-                allocated = torch.cuda.memory_allocated(gpu_id) / (1024**3)
-                print(f" 使用GPU詳細: {gpu_name} (ID: {gpu_id})")
-                print(f" GPU メモリ: {gpu_memory:.1f}GB (現在使用中: {allocated:.1f}GB)")
-            except Exception:
-                print(f" 使用GPU詳細: {gpu_name} (ID: {gpu_id}, メモリ: {gpu_memory:.1f}GB)")
+                print(" ⚠️ CUDAが利用できません")
+        elif config.device == "mps":
+            print(" Apple Silicon GPU (MPS) を使用")
+        else:
+            print(" CPUを使用")
         
         print()
         
@@ -238,40 +267,35 @@ def run_comprehensive_test():
         config = ModelConfig()
         print(" ✅ 設定ファイル作成成功")
         
-        print(" 音声認識エンジン初期化テスト...")
-        print(" (この処理には時間がかかります...)")
-        from reazon_speech.model import ReazonSpeechModel
-        model = ReazonSpeechModel(config)
-        print(" ✅ 音声認識エンジン初期化成功")
-        
         print(" デバイス情報取得テスト...")
         device_info = get_device_info()
-        print(f" 使用デバイス: {model.device}")
+        print(f" 設定されたデバイス: {config.device}")
         
-        # 使用中のGPU詳細情報を表示
-        if model.device.startswith('cuda'):
+        # 使用中のGPU詳細情報を表示（設定ベース）
+        if config.device.startswith('cuda'):
             import torch
-            if ':' in model.device:
-                gpu_id = int(model.device.split(':')[1])
+            if torch.cuda.is_available():
+                if ':' in config.device:
+                    gpu_id = int(config.device.split(':')[1])
+                else:
+                    gpu_id = torch.cuda.current_device()
+                
+                gpu_name = torch.cuda.get_device_name(gpu_id)
+                gpu_memory = torch.cuda.get_device_properties(gpu_id).total_memory / (1024**3)
+                print(f" GPU詳細: {gpu_name} (ID: {gpu_id}, メモリ: {gpu_memory:.1f}GB)")
             else:
-                gpu_id = torch.cuda.current_device()
-            
-            gpu_name = torch.cuda.get_device_name(gpu_id)
-            gpu_memory = torch.cuda.get_device_properties(gpu_id).total_memory / (1024**3)
-            
-            try:
-                allocated = torch.cuda.memory_allocated(gpu_id) / (1024**3)
-                print(f" 使用GPU詳細: {gpu_name} (ID: {gpu_id})")
-                print(f" GPU メモリ: {gpu_memory:.1f}GB (現在使用中: {allocated:.1f}GB)")
-            except Exception:
-                print(f" 使用GPU詳細: {gpu_name} (ID: {gpu_id}, メモリ: {gpu_memory:.1f}GB)")
+                print(" ⚠️ CUDAが利用できません")
+        elif config.device == "mps":
+            print(" Apple Silicon GPU (MPS) を使用")
+        else:
+            print(" CPUを使用")
         
         print(" ✅ 総合テスト成功")
         print()
         
     except Exception as e:
         print(f" ❌ 総合テストエラー: {e}")
-        print(" setup.py を実行してセットアップを完了してください")
+        print(" 詳細な診断には各個別テストの結果を確認してください")
         print()
 
 

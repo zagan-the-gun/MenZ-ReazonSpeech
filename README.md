@@ -419,6 +419,17 @@ pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
 python -c "import sounddevice as sd; print(sd.query_devices())"
 ```
 
+### Windowsバッチファイルの文字エンコーディング問題
+
+Windowsで`check_gpu.bat`を実行した際に文字化けが発生する場合：
+
+```bash
+# 直接Pythonで実行
+python check_gpu.py
+```
+
+バッチファイルはASCII文字のみを使用し、文字エンコーディング問題を回避するよう修正されています。
+
 ## ライセンス
 
 このプロジェクトはMITライセンスの下で公開されています。
