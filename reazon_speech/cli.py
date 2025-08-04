@@ -36,6 +36,12 @@ def main():
 
   # デバイス情報の表示
   reazon-speech --info
+
+  # 特定のGPUを使用
+  reazon-speech audio.wav --device cuda --gpu-id 1
+
+  # GPU IDを指定
+  reazon-speech audio.wav --gpu-id auto
         """
     )
     
@@ -67,6 +73,18 @@ def main():
         choices=["auto", "cpu", "cuda"],
         default="auto",
         help="使用デバイス（デフォルト: auto）"
+    )
+    
+    parser.add_argument(
+        "--gpu-id",
+        type=int,
+        help="使用するGPU番号（0, 1, 2など）。--device cudaと組み合わせて使用"
+    )
+    
+    parser.add_argument(
+        "--gpu-id",
+        type=str,
+        help="使用するGPU ID（0, 1, 2... または auto）"
     )
     
     parser.add_argument(
@@ -121,6 +139,13 @@ def main():
     # コマンドライン引数で設定を上書き
     if args.device != "auto":
         config.device = args.device
+        # GPU番号が指定されている場合
+        if args.gpu_id is not None and args.device == "cuda":
+            config.device = f"cuda:{args.gpu_id}"
+    
+    if args.gpu_id is not None:
+        config.gpu_id = args.gpu_id
+    
     if args.sample_rate is not None:
         config.sample_rate = args.sample_rate
     if args.vad_threshold is not None:

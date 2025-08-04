@@ -27,7 +27,8 @@ class ModelConfig:
     
     # 推論設定
     batch_size: int = 1
-    device: str = "auto"  # "auto", "cpu", "cuda", "cuda:0", "cuda:1", etc.
+    device: str = "auto"  # "auto", "cpu", "cuda", "mps"
+    gpu_id: str = "auto"  # "auto", "0", "1", "2", etc.
     
     # Silero VAD設定（エンタープライズグレード）
     silero_threshold: float = 0.5           # Silero VAD閾値（0.0-1.0）
@@ -75,21 +76,56 @@ class ModelConfig:
             else:
                 self.device = "cpu"
         
-        # GPU番号指定の検証
-        if self.device.startswith("cuda:"):
+        # GPU IDの処理
+        if self.device == "cuda":
             import torch
             if not torch.cuda.is_available():
                 print(f"警告: CUDAが利用できません。CPUに変更します。")
                 self.device = "cpu"
             else:
-                try:
-                    gpu_id = int(self.device.split(":")[1])
-                    if gpu_id >= torch.cuda.device_count():
-                        print(f"警告: GPU {gpu_id}は存在しません。GPU 0に変更します。")
+                # GPU IDの検証と設定
+                if self.gpu_id == "auto":
+                    # 自動選択: メモリ使用量が最も少ないGPU
+                    selected_gpu = self._select_best_gpu()
+                    if selected_gpu is not None:
+                        self.device = f"cuda:{selected_gpu}"
+                        print(f"GPU自動選択: {self.device} ({torch.cuda.get_device_name(selected_gpu)})")
+                else:
+                    # 特定のGPU IDを指定
+                    try:
+                        gpu_id = int(self.gpu_id)
+                        if gpu_id >= torch.cuda.device_count():
+                            print(f"警告: GPU {gpu_id}は存在しません。GPU 0に変更します。")
+                            self.device = "cuda:0"
+                        else:
+                            self.device = f"cuda:{gpu_id}"
+                    except (ValueError, TypeError):
+                        print(f"警告: 無効なGPU ID '{self.gpu_id}'。GPU 0に変更します。")
                         self.device = "cuda:0"
-                except (ValueError, IndexError):
-                    print(f"警告: 無効なGPU指定 '{self.device}'。cudaに変更します。")
-                    self.device = "cuda"
+    
+    def _select_best_gpu(self) -> Optional[int]:
+        """最適なGPUを選択（メモリ使用量が最も少ないGPU）"""
+        import torch
+        
+        if not torch.cuda.is_available():
+            return None
+        
+        gpu_count = torch.cuda.device_count()
+        if gpu_count <= 1:
+            return 0
+        
+        # メモリ使用量が最も少ないGPUを選択
+        best_gpu = 0
+        min_memory = float('inf')
+        
+        for i in range(gpu_count):
+            torch.cuda.set_device(i)
+            memory_used = torch.cuda.memory_allocated(i)
+            if memory_used < min_memory:
+                min_memory = memory_used
+                best_gpu = i
+        
+        return best_gpu
     
     @classmethod
     def from_dict(cls, config_dict: dict) -> "ModelConfig":
@@ -123,6 +159,7 @@ class ModelConfig:
             if 'inference' in parser:
                 config.batch_size = parser.getint('inference', 'batch_size', fallback=config.batch_size)
                 config.device = parser.get('inference', 'device', fallback=config.device)
+                config.gpu_id = parser.get('inference', 'gpu_id', fallback=config.gpu_id)
             
             # 音声検出設定
             if 'recognizer' in parser:
@@ -187,7 +224,8 @@ class ModelConfig:
         # 推論設定
         parser['inference'] = {
             'batch_size': str(self.batch_size),
-            'device': self.device
+            'device': self.device,
+            'gpu_id': self.gpu_id
         }
         
         # 音声検出設定
@@ -251,6 +289,7 @@ class ModelConfig:
             "vad_level": self.vad_level,
             "batch_size": self.batch_size,
             "device": self.device,
+            "gpu_id": self.gpu_id,
             "silero_threshold": self.silero_threshold,
             "min_speech_duration_ms": self.min_speech_duration_ms,
             "min_silence_duration_ms": self.min_silence_duration_ms,

@@ -195,14 +195,22 @@ def get_device_info() -> dict:
         gpus = []
         
         for i in range(gpu_count):
+            torch.cuda.set_device(i)
             gpu_props = torch.cuda.get_device_properties(i)
+            memory_used = torch.cuda.memory_allocated(i)
+            memory_free = torch.cuda.memory_reserved(i) - memory_used
+            
             gpu_info = {
                 "id": i,
                 "name": torch.cuda.get_device_name(i),
                 "memory_total": gpu_props.total_memory,
                 "memory_total_gb": round(gpu_props.total_memory / (1024**3), 2),
+                "memory_used_mb": round(memory_used / (1024**2), 1),
+                "memory_free_mb": round(memory_free / (1024**2), 1),
+                "memory_usage_percent": round((memory_used / gpu_props.total_memory) * 100, 1),
                 "compute_capability": f"{gpu_props.major}.{gpu_props.minor}",
-                "multiprocessor_count": gpu_props.multiprocessor_count
+                "multiprocessor_count": gpu_props.multiprocessor_count,
+                "performance_score": gpu_props.major * 10 + gpu_props.minor + gpu_props.multiprocessor_count * 0.1
             }
             gpus.append(gpu_info)
         
@@ -237,19 +245,38 @@ def print_gpu_info():
         print(f"現在のGPU: {info['current_gpu']}")
         print()
         
-        for gpu in info['gpus']:
-            print(f"GPU {gpu['id']}: {gpu['name']}")
-            print(f"  メモリ: {gpu['memory_total_gb']} GB")
+        # GPUをメモリ使用量でソート
+        gpus_sorted = sorted(info['gpus'], key=lambda x: x['memory_usage_percent'])
+        
+        for gpu in gpus_sorted:
+            status = "推奨" if gpu['memory_usage_percent'] < 50 else "使用中" if gpu['memory_usage_percent'] < 80 else "高負荷"
+            print(f"GPU {gpu['id']}: {gpu['name']} [{status}]")
+            print(f"  メモリ: {gpu['memory_total_gb']} GB (使用中: {gpu['memory_used_mb']} MB, 空き: {gpu['memory_free_mb']} MB, 使用率: {gpu['memory_usage_percent']}%)")
             print(f"  コンピュート能力: {gpu['compute_capability']}")
             print(f"  マルチプロセッサ数: {gpu['multiprocessor_count']}")
+            print(f"  性能スコア: {gpu['performance_score']:.1f}")
             print()
         
-        print("使用例:")
-        print("  --device-type auto        # 自動選択")
-        print("  --device-type cuda        # デフォルトGPU")
-        for gpu in info['gpus']:
-            print(f"  --device-type cuda:{gpu['id']}      # GPU {gpu['id']} ({gpu['name']})")
-        print("  --device-type cpu         # CPU使用")
+        print("=== GPU選択オプション ===")
+        print("設定ファイル (config.ini) の [inference] セクションで設定:")
+        print("  device = cuda")
+        print("  gpu_id = auto        # 自動選択（メモリ使用量が最も少ないGPU）")
+        print("  gpu_id = 0           # GPU 0を指定")
+        print("  gpu_id = 1           # GPU 1を指定")
+        print()
+        print("コマンドライン引数:")
+        print("  --device cuda        # CUDA使用（自動選択）")
+        print("  --device cuda --gpu-id 1  # GPU 1を指定")
+        print("  --gpu-id auto        # 自動選択")
+        print("  --gpu-id 0           # GPU 0を指定")
+        print("  --device cpu         # CPU使用")
+        print()
+        print("推奨設定:")
+        if len(info['gpus']) > 1:
+            best_memory_gpu = min(info['gpus'], key=lambda x: x['memory_usage_percent'])
+            print(f"  メモリ効率重視: gpu_id = {best_memory_gpu['id']} (使用率: {best_memory_gpu['memory_usage_percent']}%)")
+        else:
+            print("  単一GPU環境のため、gpu_id = autoが最適です")
     else:
         print("GPUは利用できません")
         print("使用例:")

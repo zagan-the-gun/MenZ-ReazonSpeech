@@ -78,6 +78,135 @@ pip install "nemo_toolkit[asr]>=1.21.0" --extra-index-url https://download.pytor
 python main.py --create-config
 ```
 
+## GPU選択機能
+
+複数のGPUがある環境で、最適なGPUを自動選択または手動指定できます。
+
+### GPU情報の確認
+
+```bash
+# 詳細なGPU情報を表示
+python -m reazon_speech.main --info
+
+# GPU環境チェック（包括的）
+python check_gpu.py
+
+# Windows用バッチファイル
+check_gpu.bat
+
+# Unix系システム用シェルスクリプト
+./check_gpu.sh
+```
+
+### 設定ファイルでのGPU選択
+
+`config.ini`の`[inference]`セクションで設定：
+
+```ini
+[inference]
+device = cuda
+gpu_id = auto        # 自動選択（メモリ使用量が最も少ないGPU）
+# gpu_id = 0           # GPU 0を指定
+# gpu_id = 1           # GPU 1を指定
+```
+
+### コマンドラインでのGPU選択
+
+```bash
+# 特定のGPUを指定
+python -m reazon_speech.main --device cuda --gpu-id 1
+
+# GPU IDを指定
+python -m reazon_speech.main --gpu-id auto
+python -m reazon_speech.main --gpu-id 0
+```
+
+### GPU選択方法の詳細
+
+- **auto**: 自動選択（デフォルト）
+  - メモリ使用量が最も少ないGPUを選択
+  - 複数GPU環境で推奨
+
+- **0, 1, 2...**: 特定のGPU ID
+  - 指定したGPU番号を直接使用
+  - 確実に特定のGPUを使用したい場合
+
+## GPU環境チェック
+
+環境の準備状況を包括的に確認できます。
+
+### チェック内容
+
+- **Python環境**: バージョン、プラットフォーム
+- **PyTorch環境**: バージョン、CUDA/MPS対応状況
+- **NeMo環境**: 音声認識フレームワーク
+- **音声処理ライブラリ**: sounddevice、librosa、numpy
+- **システムリソース**: CPU、メモリ、ディスク容量
+- **ReazonSpeechモデル**: モデルアクセステスト
+- **設定ファイル**: 設定の検証
+- **総合テスト**: 音声認識エンジンの初期化テスト
+
+### 実行方法
+
+```bash
+# Python直接実行
+python check_gpu.py
+
+# Windows用バッチファイル
+check_gpu.bat
+
+# Unix系システム用シェルスクリプト
+./check_gpu.sh
+```
+
+### 出力例
+
+```
+🔍 MenZ-ReazonSpeech 環境チェック
+==================================================
+
+🐍 Python環境:
+  バージョン: 3.12.0
+  プラットフォーム: macOS-14.0
+
+🔥 PyTorch環境:
+  PyTorch: 2.1.0
+  CUDA利用可能: False
+  MPS（Apple Silicon）: 利用可能
+
+🎯 NeMo環境:
+  NeMo: 1.21.0
+
+🎵 音声処理ライブラリ:
+  sounddevice: 0.4.6
+  librosa: 0.10.1
+  numpy: 1.24.3
+
+💻 システムリソース:
+  CPU: 8コア (使用率: 15.2%)
+  メモリ: 16.0GB (使用率: 45.3%)
+  利用可能ディスク容量: 256.5GB
+
+🎤 ReazonSpeechモデルアクセステスト:
+  モデル: reazon-research/reazonspeech-nemo-v2
+  ✅ トークナイザー読み込み成功
+  ✅ モデル読み込み成功
+
+⚙️ 設定ファイルチェック:
+  設定されたデバイス: mps
+  設定されたGPU ID: auto
+  モデル名: reazon-research/reazonspeech-nemo-v2
+
+🧪 総合動作テスト:
+  ✅ 設定ファイル作成成功
+  ✅ 音声認識エンジン初期化成功
+  ✅ 総合テスト成功
+
+==================================================
+✅ 環境チェック完了
+==================================================
+```
+
 ## WebSocket字幕送信の使用方法
 
 ### 基本的な使用方法
@@ -202,6 +331,12 @@ python -m reazon_speech.main --verbose
 
 # デバイス情報を表示
 python -m reazon_speech.main --info
+
+# 特定のGPUを使用
+python -m reazon_speech.main --device cuda --gpu-id 1
+
+# GPU IDを指定
+python -m reazon_speech.main --gpu-id auto
 
 # カスタム設定
 python -m reazon_speech.main --sample-rate 16000 --vad-threshold 0.5
