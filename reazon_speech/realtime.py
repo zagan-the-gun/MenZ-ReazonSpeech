@@ -64,9 +64,10 @@ class RealtimeTranscriber:
             threshold=vad_threshold, 
             sampling_rate=self.rate,
             min_speech_duration_ms=min_speech_ms,
-            min_silence_duration_ms=min_silence_ms
+            min_silence_duration_ms=min_silence_ms,
+            device=self.config.device
         )
-        print(f"Real-time VAD: Using Silero VAD (threshold={vad_threshold}, min_speech={min_speech_ms}ms, min_silence={min_silence_ms}ms)")
+        print(f"Real-time VAD: Using Silero VAD (threshold={vad_threshold}, min_speech={min_speech_ms}ms, min_silence={min_silence_ms}ms, device={self.config.device})")
         self.frame_duration = self.config.frame_duration_ms  # ms
         self.frame_size = int(self.rate * self.frame_duration / 1000)
         

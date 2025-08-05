@@ -34,7 +34,7 @@ if errorlevel 1 (
 )
 
 echo Checking reazon_speech module...
-python -c "import reazon_speech; print('Module loaded successfully')" 2>nul
+python -c "import reazon_speech.config; print('Module loaded successfully')" 2>nul
 if errorlevel 1 (
     echo.
     echo ERROR: reazon_speech module not found or dependencies missing
