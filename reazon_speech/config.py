@@ -135,71 +135,87 @@ class ModelConfig:
     @classmethod
     def from_ini(cls, config_path: str = "config.ini") -> "ModelConfig":
         """INIファイルから設定を読み込み"""
-        config = cls()
+        if not os.path.exists(config_path):
+            return cls()
         
-        if os.path.exists(config_path):
-            parser = configparser.ConfigParser()
-            parser.read(config_path, encoding='utf-8')
-            
-            # モデル設定
-            if 'model' in parser:
-                config.model_name = parser.get('model', 'name', fallback=config.model_name)
-                config.cache_dir = parser.get('model', 'cache_dir', fallback=config.cache_dir)
-            
-            # 音声処理設定
-            if 'audio' in parser:
-                config.sample_rate = parser.getint('audio', 'sample_rate', fallback=config.sample_rate)
-                config.chunk_length_s = parser.getint('audio', 'chunk_length_s', fallback=config.chunk_length_s)
-                config.stride_length_s = parser.getint('audio', 'stride_length_s', fallback=config.stride_length_s)
-                config.chunk_size = parser.getint('audio', 'chunk_size', fallback=config.chunk_size)
-                config.frame_duration_ms = parser.getint('audio', 'frame_duration_ms', fallback=config.frame_duration_ms)
-                config.vad_level = parser.getint('audio', 'vad_level', fallback=config.vad_level)
-            
-            # 推論設定
-            if 'inference' in parser:
-                config.batch_size = parser.getint('inference', 'batch_size', fallback=config.batch_size)
-                config.device = parser.get('inference', 'device', fallback=config.device)
-                config.gpu_id = parser.get('inference', 'gpu_id', fallback=config.gpu_id)
-            
-            # 音声検出設定
-            if 'recognizer' in parser:
-                config.vad_threshold = parser.getfloat('recognizer', 'vad_threshold', fallback=config.vad_threshold)
-                config.min_audio_level = parser.getfloat('recognizer', 'min_audio_level', fallback=config.min_audio_level)
-                config.pause_threshold = parser.getint('recognizer', 'pause_threshold', fallback=config.pause_threshold)
-                config.phrase_threshold = parser.getint('recognizer', 'phrase_threshold', fallback=config.phrase_threshold)
-                config.max_duration = parser.getfloat('recognizer', 'max_duration', fallback=config.max_duration)
-            
-            # Silero VAD設定
-            if 'silero_vad' in parser:
-                config.silero_threshold = parser.getfloat('silero_vad', 'threshold', fallback=config.silero_threshold)
-                config.min_speech_duration_ms = parser.getint('silero_vad', 'min_speech_duration_ms', fallback=config.min_speech_duration_ms)
-                config.min_silence_duration_ms = parser.getint('silero_vad', 'min_silence_duration_ms', fallback=config.min_silence_duration_ms)
-                config.pause_threshold = parser.getint('silero_vad', 'pause_threshold', fallback=config.pause_threshold)
-                config.phrase_threshold = parser.getint('silero_vad', 'phrase_threshold', fallback=config.phrase_threshold)
-            # 出力設定
-            if 'output' in parser:
-                config.output_format = parser.get('output', 'format', fallback=config.output_format)
-                config.language = parser.get('output', 'language', fallback=config.language)
-            
-            # WebSocket設定
-            if 'websocket' in parser:
-                config.websocket_enabled = parser.getboolean('websocket', 'enabled', fallback=config.websocket_enabled)
-                config.websocket_port = parser.getint('websocket', 'port', fallback=config.websocket_port)
-                config.websocket_host = parser.get('websocket', 'host', fallback=config.websocket_host)
-                config.text_type = parser.getint('websocket', 'text_type', fallback=config.text_type)
-            
-            # 基本的なフィルタリング設定
-            if 'filtering' in parser:
-                config.min_length = parser.getint('filtering', 'min_length', fallback=config.min_length)
-                config.exclude_whitespace_only = parser.getboolean('filtering', 'exclude_whitespace_only', fallback=config.exclude_whitespace_only)
-            
-
-            # デバッグ設定
-            if 'debug' in parser:
-                config.show_debug = parser.getboolean('debug', 'show_debug', fallback=config.show_debug)
-                config.show_transcription = parser.getboolean('debug', 'show_transcription', fallback=config.show_transcription)
+        parser = configparser.ConfigParser()
+        parser.read(config_path, encoding='utf-8')
         
-        return config
+        # デフォルト値を取得して、設定ファイルで上書き
+        defaults = cls()
+        config_dict = {}
+        
+        # 設定マッピング定義（MenZ-FuguMT風にシンプル化）
+        config_mapping = {
+            'model': {
+                'name': ('model_name', str),
+                'cache_dir': ('cache_dir', str),
+            },
+            'audio': {
+                'sample_rate': ('sample_rate', int),
+                'chunk_length_s': ('chunk_length_s', int),
+                'stride_length_s': ('stride_length_s', int),
+                'chunk_size': ('chunk_size', int),
+                'frame_duration_ms': ('frame_duration_ms', int),
+                'vad_level': ('vad_level', int),
+            },
+            'inference': {
+                'batch_size': ('batch_size', int),
+                'device': ('device', str),
+                'gpu_id': ('gpu_id', str),
+            },
+            'recognizer': {
+                'vad_threshold': ('vad_threshold', float),
+                'min_audio_level': ('min_audio_level', float),
+                'pause_threshold': ('pause_threshold', int),
+                'phrase_threshold': ('phrase_threshold', int),
+                'max_duration': ('max_duration', float),
+            },
+            'silero_vad': {
+                'threshold': ('silero_threshold', float),
+                'min_speech_duration_ms': ('min_speech_duration_ms', int),
+                'min_silence_duration_ms': ('min_silence_duration_ms', int),
+            },
+            'output': {
+                'format': ('output_format', str),
+                'language': ('language', str),
+            },
+            'websocket': {
+                'enabled': ('websocket_enabled', bool),
+                'port': ('websocket_port', int),
+                'host': ('websocket_host', str),
+                'text_type': ('text_type', int),
+            },
+            'filtering': {
+                'min_length': ('min_length', int),
+                'exclude_whitespace_only': ('exclude_whitespace_only', bool),
+            },
+            'debug': {
+                'show_debug': ('show_debug', bool),
+                'show_transcription': ('show_transcription', bool),
+            }
+        }
+        
+        # 設定ファイルから値を読み込み
+        for section_name, section_config in config_mapping.items():
+            if section_name in parser:
+                section = parser[section_name]
+                for key, (attr_name, value_type) in section_config.items():
+                    if key in section:
+                        default_value = getattr(defaults, attr_name)
+                        try:
+                            if value_type == bool:
+                                config_dict[attr_name] = section.getboolean(key, fallback=default_value)
+                            elif value_type == int:
+                                config_dict[attr_name] = section.getint(key, fallback=default_value)
+                            elif value_type == float:
+                                config_dict[attr_name] = section.getfloat(key, fallback=default_value)
+                            else:
+                                config_dict[attr_name] = section.get(key, fallback=default_value)
+                        except ValueError:
+                            config_dict[attr_name] = default_value
+        
+        return cls(**config_dict)
     
     def save_ini(self, config_path: str = "config.ini") -> None:
         """設定をINIファイルに保存"""
