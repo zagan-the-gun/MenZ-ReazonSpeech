@@ -7,7 +7,7 @@ import numpy as np
 from typing import Optional, Dict, Any
 from pathlib import Path
 
-from .config import ModelConfig, DEFAULT_CONFIG
+from .config import ModelConfig
 from .utils import ModelDownloader, get_device_info
 from nemo.collections.asr.models import EncDecRNNTBPEModel
 from nemo.collections.asr.parts.submodules.rnnt_greedy_decoding import GreedyRNNTInfer
@@ -18,9 +18,9 @@ class ReazonSpeechModel:
     def __init__(self, config: Optional[ModelConfig] = None):
         """
         Args:
-            config: モデル設定
+            config: モデル設定（省略時はデフォルト値を使用）
         """
-        self.config = config or DEFAULT_CONFIG
+        self.config = config or ModelConfig()
         self.model_downloader = ModelDownloader(self.config.cache_dir)
         
         # モデルの初期化

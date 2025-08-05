@@ -324,7 +324,3 @@ class ModelConfig:
             "show_debug": self.show_debug,
             "show_transcription": self.show_transcription,
         }
-
-
-# デフォルト設定
-DEFAULT_CONFIG = ModelConfig() 

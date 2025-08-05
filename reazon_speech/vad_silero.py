@@ -24,13 +24,15 @@ class SileroVAD:
     """Silero VAD実装（YukariWhisper方式）"""
     
     def __init__(self, threshold: float = 0.5, sampling_rate: int = 16000, 
-                 min_speech_duration_ms: int = 30, min_silence_duration_ms: int = 100):
+                 min_speech_duration_ms: int = 30, min_silence_duration_ms: int = 100,
+                 device: str = "auto"):
         """
         Args:
             threshold: VAD閾値（0.0-1.0）
             sampling_rate: サンプリングレート（8000または16000）
             min_speech_duration_ms: 最小音声長さ（ミリ秒）
             min_silence_duration_ms: 最小無音長さ（ミリ秒）
+            device: 使用デバイス（"auto", "cpu", "cuda", "cuda:0", "cuda:1"等）
         """
         if not SILERO_AVAILABLE:
             raise ImportError(
@@ -41,6 +43,7 @@ class SileroVAD:
         self.sampling_rate = sampling_rate
         self.min_speech_duration_ms = min_speech_duration_ms
         self.min_silence_duration_ms = min_silence_duration_ms
+        self.device = device
         self.model = None
         self.utils = None
         
@@ -61,7 +64,10 @@ class SileroVAD:
             # 方法1: silero-vadパッケージから
             try:
                 self.model = load_silero_vad()
-                print("Silero VAD loaded from silero-vad package")
+                # 指定されたdeviceにモデルを移動
+                if self.device != "auto":
+                    self.model = self.model.to(self.device)
+                print(f"Silero VAD loaded from silero-vad package (device: {self.device})")
                 return
             except (ImportError, AttributeError, FileNotFoundError, RuntimeError) as e:
                 print(f"silero-vad package failed: {e}")
@@ -74,7 +80,10 @@ class SileroVAD:
                     force_reload=False,
                     trust_repo=True
                 )
-                print("Silero VAD loaded from PyTorch Hub")
+                # 指定されたdeviceにモデルを移動
+                if self.device != "auto":
+                    self.model = self.model.to(self.device)
+                print(f"Silero VAD loaded from PyTorch Hub (device: {self.device})")
                 return
             except Exception as e:
                 print(f"PyTorch Hub failed: {e}")
@@ -87,7 +96,10 @@ class SileroVAD:
                 force_reload=True,
                 trust_repo=True
             )
-            print("Silero VAD loaded with force reload")
+            # 指定されたdeviceにモデルを移動
+            if self.device != "auto":
+                self.model = self.model.to(self.device)
+            print(f"Silero VAD loaded with force reload (device: {self.device})")
             
         except Exception as e:
             print(f"All VAD methods failed: {e}")

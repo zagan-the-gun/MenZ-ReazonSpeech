@@ -29,18 +29,21 @@ class AudioProcessor:
             vad_threshold = getattr(config, 'silero_threshold', threshold)
             min_speech_ms = getattr(config, 'min_speech_duration_ms', 30)
             min_silence_ms = getattr(config, 'min_silence_duration_ms', 100)
+            device = getattr(config, 'device', 'auto')
         else:
             vad_threshold = threshold
             min_speech_ms = 30
             min_silence_ms = 100
+            device = 'auto'
             
         self.vad = SileroVAD(
             threshold=vad_threshold, 
             sampling_rate=sample_rate,
             min_speech_duration_ms=min_speech_ms,
-            min_silence_duration_ms=min_silence_ms
+            min_silence_duration_ms=min_silence_ms,
+            device=device
         )
-        print(f"Using Silero VAD (threshold={vad_threshold}, min_speech={min_speech_ms}ms, min_silence={min_silence_ms}ms)")
+        print(f"Using Silero VAD (threshold={vad_threshold}, min_speech={min_speech_ms}ms, min_silence={min_silence_ms}ms, device={device})")
     
     def load_audio(self, file_path: str) -> np.ndarray:
         """音声ファイルを読み込み"""
