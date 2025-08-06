@@ -25,14 +25,15 @@ class SileroVAD:
     
     def __init__(self, threshold: float = 0.5, sampling_rate: int = 16000, 
                  min_speech_duration_ms: int = 30, min_silence_duration_ms: int = 100,
-                 device: str = "auto"):
+                 device: str = "cpu", gpu_id: int = 0):
         """
         Args:
             threshold: VAD閾値（0.0-1.0）
             sampling_rate: サンプリングレート（8000または16000）
             min_speech_duration_ms: 最小音声長さ（ミリ秒）
             min_silence_duration_ms: 最小無音長さ（ミリ秒）
-            device: 使用デバイス（"auto", "cpu", "cuda", "cuda:0", "cuda:1"等）
+            device: 使用デバイス（"cpu", "cuda", "mps"）
+            gpu_id: GPU番号（cudaの場合のみ有効）
         """
         if not SILERO_AVAILABLE:
             raise ImportError(
@@ -43,9 +44,16 @@ class SileroVAD:
         self.sampling_rate = sampling_rate
         self.min_speech_duration_ms = min_speech_duration_ms
         self.min_silence_duration_ms = min_silence_duration_ms
-        self.device = device
+        self.base_device = device
+        self.gpu_id = gpu_id
         self.model = None
         self.utils = None
+        
+        # 実際のデバイス文字列を構築
+        if device == "cuda":
+            self.device = f"cuda:{gpu_id}"
+        else:
+            self.device = device
         
         # サンプリングレート検証
         if sampling_rate not in [8000, 16000]:
@@ -64,9 +72,7 @@ class SileroVAD:
             # 方法1: silero-vadパッケージから
             try:
                 self.model = load_silero_vad()
-                # 指定されたdeviceにモデルを移動
-                if self.device != "auto":
-                    self.model = self.model.to(self.device)
+                self.model = self.model.to(self.device)
                 print(f"Silero VAD loaded from silero-vad package (device: {self.device})")
                 return
             except (ImportError, AttributeError, FileNotFoundError, RuntimeError) as e:
@@ -80,9 +86,7 @@ class SileroVAD:
                     force_reload=False,
                     trust_repo=True
                 )
-                # 指定されたdeviceにモデルを移動
-                if self.device != "auto":
-                    self.model = self.model.to(self.device)
+                self.model = self.model.to(self.device)
                 print(f"Silero VAD loaded from PyTorch Hub (device: {self.device})")
                 return
             except Exception as e:
@@ -96,9 +100,7 @@ class SileroVAD:
                 force_reload=True,
                 trust_repo=True
             )
-            # 指定されたdeviceにモデルを移動
-            if self.device != "auto":
-                self.model = self.model.to(self.device)
+            self.model = self.model.to(self.device)
             print(f"Silero VAD loaded with force reload (device: {self.device})")
             
         except Exception as e:
@@ -141,6 +143,9 @@ class SileroVAD:
         
         # PyTorchテンソルに変換
         wav_tensor = torch.from_numpy(audio_data).float()
+        
+        # モデルと同じデバイスにテンソルを移動
+        wav_tensor = wav_tensor.to(self.device)
         
         try:
             if self.utils:
@@ -196,6 +201,9 @@ class SileroVAD:
             )
         
         wav_tensor = torch.from_numpy(audio_data).float()
+        
+        # モデルと同じデバイスにテンソルを移動
+        wav_tensor = wav_tensor.to(self.device)
         
         try:
             # モデルの直接出力を取得

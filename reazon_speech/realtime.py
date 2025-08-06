@@ -60,12 +60,21 @@ class RealtimeTranscriber:
         min_speech_ms = getattr(self.config, 'min_speech_duration_ms', 30)
         min_silence_ms = getattr(self.config, 'min_silence_duration_ms', 100)
         
+        # デバイス設定を分解
+        if self.config.device.startswith("cuda:"):
+            base_device = "cuda"
+            gpu_id = int(self.config.device.split(":")[1])
+        else:
+            base_device = self.config.device
+            gpu_id = 0
+            
         self.vad = SileroVAD(
             threshold=vad_threshold, 
             sampling_rate=self.rate,
             min_speech_duration_ms=min_speech_ms,
             min_silence_duration_ms=min_silence_ms,
-            device=self.config.device
+            device=base_device,
+            gpu_id=gpu_id
         )
         print(f"Real-time VAD: Using Silero VAD (threshold={vad_threshold}, min_speech={min_speech_ms}ms, min_silence={min_silence_ms}ms, device={self.config.device})")
         self.frame_duration = self.config.frame_duration_ms  # ms
