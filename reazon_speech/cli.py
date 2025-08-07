@@ -93,11 +93,7 @@ def main():
         help="サンプルレート（設定ファイルから読み込み）"
     )
     
-    parser.add_argument(
-        "--vad-threshold",
-        type=float,
-        help="VAD閾値（設定ファイルから読み込み）"
-    )
+
     
     parser.add_argument(
         "--max-speech-duration",
@@ -148,8 +144,7 @@ def main():
     
     if args.sample_rate is not None:
         config.sample_rate = args.sample_rate
-    if args.vad_threshold is not None:
-        config.vad_threshold = args.vad_threshold
+
     if args.max_speech_duration != float("inf"):
         config.max_duration = args.max_speech_duration
     if args.format != "text":

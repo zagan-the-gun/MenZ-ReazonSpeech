@@ -20,7 +20,6 @@ def print_result(text: str):
     """認識結果を表示するコールバック"""
     print(f"認識結果: {text}")
 
-
 def main():
     """メイン関数"""
     parser = argparse.ArgumentParser(
@@ -87,12 +86,6 @@ def main():
         "--sample-rate",
         type=int,
         help="サンプルレート（設定ファイルから読み込み）"
-    )
-    
-    parser.add_argument(
-        "--vad-threshold",
-        type=float,
-        help="VAD閾値（設定ファイルから読み込み）"
     )
     
     parser.add_argument(
@@ -176,7 +169,6 @@ def main():
         print(f"設定ファイルの読み込みに失敗しました: {e}")
         print("デフォルト設定を使用します")
         config = ModelConfig()
-
     
     # コマンドライン引数で設定を上書き
     if args.device_type != "auto":
@@ -196,8 +188,7 @@ def main():
         print(f"自動デバイス選択: {config.device}")
     if args.sample_rate is not None:
         config.sample_rate = args.sample_rate
-    if args.vad_threshold is not None:
-        config.vad_threshold = args.vad_threshold
+
     if args.max_speech_duration != float("inf"):
         config.max_speech_duration = args.max_speech_duration
     if args.verbose:
@@ -218,7 +209,7 @@ def main():
     if args.verbose:
         print("=== MenZ-ReazonSpeech リアルタイム音声認識 ===")
         print(f"サンプルレート: {config.sample_rate}")
-        print(f"VAD閾値: {config.vad_threshold}")
+        print(f"VAD閾値: {config.silero_threshold}")
         print(f"デバイス: {config.device}")
         
         if config.websocket_enabled:
@@ -241,7 +232,6 @@ def main():
     except Exception as e:
         print(f"エラー: {e}")
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main() 

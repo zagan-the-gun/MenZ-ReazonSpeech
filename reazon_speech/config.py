@@ -19,32 +19,24 @@ class ModelConfig:
     
     # 音声処理設定
     sample_rate: int = 16000
-    chunk_length_s: int = 30
-    stride_length_s: int = 1
     chunk_size: int = 1024
     frame_duration_ms: int = 30
     vad_level: int = 2
     
     # 推論設定
-    batch_size: int = 1
     device: str = "auto"  # "auto", "cpu", "cuda", "mps"
     gpu_id: str = "auto"  # "auto", "0", "1", "2", etc.
     
     # Silero VAD設定（エンタープライズグレード）
     silero_threshold: float = 0.5           # Silero VAD閾値（0.0-1.0）
-    min_speech_duration_ms: int = 30        # 最小音声長さ（ミリ秒）
+    min_speech_duration_ms: int = 10        # 最小音声長さ（ミリ秒）
     min_silence_duration_ms: int = 100      # 最小無音長さ（ミリ秒）
     pause_threshold: int = 5                # 無音継続時間（0.1秒単位）YukariWhisper互換
-    phrase_threshold: int = 10              # 最小音声継続時間（0.1秒単位）YukariWhisper互換
+    phrase_threshold: int = 2               # 最小音声継続時間（0.1秒単位）YukariWhisper互換
     max_duration: float = 30.0              # 最大音声継続時間（秒）
-    min_audio_level: float = 0.01           # 音声レベル最小閾値（後方互換性）
+    min_audio_level: float = 0.00005        # 音声レベル最小閾値（後方互換性）
     
-    # 後方互換性のため
-    vad_threshold: float = 0.5              # 旧設定との互換性用（silero_thresholdと同じ）
-    
-    # 出力設定
-    output_format: str = "text"  # "text", "json", "srt"
-    language: str = "ja"
+
     
     # WebSocket設定
     websocket_enabled: bool = False   # WebSocket送信の有効/無効
@@ -54,8 +46,7 @@ class ModelConfig:
     
     # 基本的なフィルタリング設定（品質向上用）
     min_length: int = 3               # 最小文字数フィルタ（ノイズ除去）
-    exclude_whitespace_only: bool = True  # 空白のみの結果を除外
-    
+    exclude_whitespace_only: bool = True  # 空白のみの結果を除外    
 
     # デバッグ設定
     show_debug: bool = True  # デバッグ情報表示（音声レベル、プログレスバー、デバッグ情報）
@@ -153,19 +144,15 @@ class ModelConfig:
             },
             'audio': {
                 'sample_rate': ('sample_rate', int),
-                'chunk_length_s': ('chunk_length_s', int),
-                'stride_length_s': ('stride_length_s', int),
                 'chunk_size': ('chunk_size', int),
                 'frame_duration_ms': ('frame_duration_ms', int),
                 'vad_level': ('vad_level', int),
             },
             'inference': {
-                'batch_size': ('batch_size', int),
                 'device': ('device', str),
                 'gpu_id': ('gpu_id', str),
             },
             'recognizer': {
-                'vad_threshold': ('vad_threshold', float),
                 'min_audio_level': ('min_audio_level', float),
                 'pause_threshold': ('pause_threshold', int),
                 'phrase_threshold': ('phrase_threshold', int),
@@ -176,10 +163,7 @@ class ModelConfig:
                 'min_speech_duration_ms': ('min_speech_duration_ms', int),
                 'min_silence_duration_ms': ('min_silence_duration_ms', int),
             },
-            'output': {
-                'format': ('output_format', str),
-                'language': ('language', str),
-            },
+
             'websocket': {
                 'enabled': ('websocket_enabled', bool),
                 'port': ('websocket_port', int),
@@ -230,8 +214,6 @@ class ModelConfig:
         # 音声処理設定
         parser['audio'] = {
             'sample_rate': str(self.sample_rate),
-            'chunk_length_s': str(self.chunk_length_s),
-            'stride_length_s': str(self.stride_length_s),
             'chunk_size': str(self.chunk_size),
             'frame_duration_ms': str(self.frame_duration_ms),
             'vad_level': str(self.vad_level)
@@ -239,18 +221,16 @@ class ModelConfig:
         
         # 推論設定
         parser['inference'] = {
-            'batch_size': str(self.batch_size),
             'device': self.device,
             'gpu_id': self.gpu_id
         }
         
         # 音声検出設定
         parser['recognizer'] = {
-            'vad_threshold': str(self.vad_threshold),
             'min_audio_level': str(self.min_audio_level),
             'pause_threshold': str(self.pause_threshold),
             'phrase_threshold': str(self.phrase_threshold),
-            'max_duration': str(self.max_duration)
+            'max_duration': str(self.max_duration),
         }
         
         # Silero VAD設定
@@ -262,11 +242,7 @@ class ModelConfig:
             'phrase_threshold': str(self.phrase_threshold)
         }
         
-        # 出力設定
-        parser['output'] = {
-            'format': self.output_format,
-            'language': self.language
-        }
+
         
         # WebSocket設定
         parser['websocket'] = {
@@ -298,12 +274,9 @@ class ModelConfig:
             "model_name": self.model_name,
             "cache_dir": self.cache_dir,
             "sample_rate": self.sample_rate,
-            "chunk_length_s": self.chunk_length_s,
-            "stride_length_s": self.stride_length_s,
             "chunk_size": self.chunk_size,
             "frame_duration_ms": self.frame_duration_ms,
             "vad_level": self.vad_level,
-            "batch_size": self.batch_size,
             "device": self.device,
             "gpu_id": self.gpu_id,
             "silero_threshold": self.silero_threshold,
@@ -313,8 +286,6 @@ class ModelConfig:
             "phrase_threshold": self.phrase_threshold,
             "max_duration": self.max_duration,
             "min_audio_level": self.min_audio_level,
-            "output_format": self.output_format,
-            "language": self.language,
             "websocket_enabled": self.websocket_enabled,
             "websocket_port": self.websocket_port,
             "websocket_host": self.websocket_host,

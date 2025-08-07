@@ -40,8 +40,6 @@ class RealtimeTranscriber:
         else:
             self.websocket_sender = None
         
-
-        
         # 音声入力設定
         self.chunk_size = self.config.chunk_size
         self.channels = 1
@@ -206,20 +204,16 @@ class RealtimeTranscriber:
                     
                     if self.config.show_debug:
                         print(f"\r音声検出: レベル={level:.3f}, VAD={is_speech}, レベルOK={level_ok}, カウンタ={self.speech_counter}", end="", flush=True)
-                elif is_speech and not level_ok:
-                    # VAD=Trueだが音声レベル不足（キータッチ音等）
-                    self.silence_counter += 1
-                    self.audio_data_list.append(audio_data.flatten())
-                    
-                    if self.config.show_debug:
-                        print(f"\r雑音除外: レベル={level:.3f}, VAD={is_speech}, レベルOK={level_ok}, カウンタ={self.silence_counter}", end="", flush=True)
                 else:
-                    # 無音を検出
+                    # VAD=False または 音声レベル不足 → 音声として扱わない
                     self.silence_counter += 1
-                    self.audio_data_list.append(audio_data.flatten())
+                    # 音声データを追加しない（ノイズ除去）
                     
                     if self.config.show_debug:
-                        print(f"\r無音検出: レベル={level:.3f}, VAD={is_speech}, レベルOK={level_ok}, カウンタ={self.silence_counter}", end="", flush=True)
+                        if is_speech and not level_ok:
+                            print(f"\r雑音除外: レベル={level:.3f}, VAD={is_speech}, レベルOK={level_ok}, カウンタ={self.silence_counter}", end="", flush=True)
+                        else:
+                            print(f"\r無音検出: レベル={level:.3f}, VAD={is_speech}, レベルOK={level_ok}, カウンタ={self.silence_counter}", end="", flush=True)
                     
                     # 無音継続でセグメント終了
                     # ReazonSpeech（RNN-T）はWhisperの25秒制限がないため、無音継続時間のみで分割
@@ -264,7 +258,7 @@ class RealtimeTranscriber:
             print(f"音声セグメント処理開始: 持続時間={duration:.2f}s, サンプル数={len(audio_segment)}")
         
         # 最小持続時間のチェック（phrase_thresholdを秒に変換）
-        min_duration = self.config.phrase_threshold * 0.1  # 0.1秒単位を秒に変換
+        min_duration = self.config.phrase_threshold * 0.1
         
         if duration >= min_duration:
             if self.config.show_debug:
@@ -297,7 +291,6 @@ class RealtimeTranscriber:
                             print(f"基本フィルタリングにより除外: '{processed_result}'")
                         return
                     processed_result = filtered_result
-                    
 
                     # 翻訳テキスト表示
                     if self.config.show_transcription:
@@ -394,11 +387,9 @@ class RealtimeTranscriber:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop_recording()
 
-
 def print_result(text: str):
     """認識結果を表示するコールバック"""
     print(f"認識結果: {text}")
-
 
 def main():
     """メイン関数"""
@@ -413,12 +404,11 @@ def main():
     # 設定
     config = ModelConfig()
     if args.verbose:
-        config.vad_threshold = 0.3  # より敏感に
+        config.silero_threshold = 0.3  # より敏感に
     
     # リアルタイム認識開始
     with RealtimeTranscriber(config, callback=print_result) as transcriber:
         transcriber.start_recording(args.device)
-
 
 if __name__ == "__main__":
     main() 
