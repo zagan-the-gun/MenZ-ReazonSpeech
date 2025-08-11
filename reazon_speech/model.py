@@ -99,7 +99,7 @@ class ReazonSpeechModel:
                 tqdm.tqdm = lambda *args, **kwargs: None
             # 音声テンソル化
             audio_tensor = torch.tensor(audio_segment, dtype=torch.float32).unsqueeze(0).to(self.config.device)
-            length_tensor = torch.tensor([len(audio_segment)], dtype=torch.int32).to(self.config.device)
+            length_tensor = torch.tensor([len(audio_segment)], dtype=torch.int64).to(self.config.device)
 
             # モデルを評価モードに設定
             self.model.eval()
