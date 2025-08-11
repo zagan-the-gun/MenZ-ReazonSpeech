@@ -108,13 +108,18 @@ class ReazonSpeechModel:
             with torch.no_grad():
                 # CUDAでは前処理経路を安定化するため、一時WAV経由のtranscribeを優先
                 is_cuda = isinstance(self.config.device, str) and self.config.device.startswith("cuda")
+                use_fp16 = is_cuda and bool(getattr(self.config, "float16", False))
                 if is_cuda:
                     try:
                         import tempfile
                         import soundfile as sf
                         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
                             sf.write(temp_file.name, audio_segment, self.config.sample_rate)
-                            result = self.model.transcribe(paths2audio_files=[temp_file.name])
+                            if use_fp16:
+                                with torch.cuda.amp.autocast(dtype=torch.float16):
+                                    result = self.model.transcribe(paths2audio_files=[temp_file.name])
+                            else:
+                                result = self.model.transcribe(paths2audio_files=[temp_file.name])
                         import os
                         try:
                             os.unlink(temp_file.name)
@@ -134,7 +139,11 @@ class ReazonSpeechModel:
                 if hasattr(self.model, 'transcribe') and callable(self.model.transcribe):
                     try:
                         # キーワード引数として渡す
-                        result = self.model.transcribe(audio=audio_segment)
+                        if use_fp16 and is_cuda:
+                            with torch.cuda.amp.autocast(dtype=torch.float16):
+                                result = self.model.transcribe(audio=audio_segment)
+                        else:
+                            result = self.model.transcribe(audio=audio_segment)
                         if result and len(result) > 0:
                             # 結果がHypothesisオブジェクトの場合はtext属性を取得
                             if hasattr(result[0], 'text'):
@@ -152,10 +161,17 @@ class ReazonSpeechModel:
                 # 方法2: エンコーダー+デコーダーを手動で使用（キーワード引数で）
                 try:
                     # キーワード引数として渡す
-                    encoded, encoded_len = self.model.encoder(
-                        audio_signal=audio_tensor, 
-                        length=length_tensor
-                    )
+                    if use_fp16 and is_cuda:
+                        with torch.cuda.amp.autocast(dtype=torch.float16):
+                            encoded, encoded_len = self.model.encoder(
+                                audio_signal=audio_tensor,
+                                length=length_tensor
+                            )
+                    else:
+                        encoded, encoded_len = self.model.encoder(
+                            audio_signal=audio_tensor,
+                            length=length_tensor
+                        )
                     
                     # デコーダーを使用してデコード
                     if hasattr(self.model, 'decoding') and self.model.decoding is not None:

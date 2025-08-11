@@ -26,6 +26,8 @@ class ModelConfig:
     # 推論設定
     device: str = "auto"  # "auto", "cpu", "cuda", "mps"
     gpu_id: str = "auto"  # "auto", "0", "1", "2", etc.
+    # FP16モード（CUDA時のみ有効）
+    float16: bool = False
     
     # Silero VAD設定（エンタープライズグレード）
     silero_threshold: float = 0.5           # Silero VAD閾値（0.0-1.0）
@@ -153,6 +155,7 @@ class ModelConfig:
             'inference': {
                 'device': ('device', str),
                 'gpu_id': ('gpu_id', str),
+                'float16': ('float16', bool),
             },
             'recognizer': {
                 'min_audio_level': ('min_audio_level', float),
@@ -226,7 +229,8 @@ class ModelConfig:
         # 推論設定
         parser['inference'] = {
             'device': self.device,
-            'gpu_id': self.gpu_id
+            'gpu_id': self.gpu_id,
+            'float16': str(self.float16)
         }
         
         # 音声検出設定
@@ -285,6 +289,7 @@ class ModelConfig:
             "vad_level": self.vad_level,
             "device": self.device,
             "gpu_id": self.gpu_id,
+            "float16": self.float16,
             "silero_threshold": self.silero_threshold,
             "min_speech_duration_ms": self.min_speech_duration_ms,
             "min_silence_duration_ms": self.min_silence_duration_ms,
