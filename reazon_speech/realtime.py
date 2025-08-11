@@ -78,6 +78,12 @@ class RealtimeTranscriber:
         self.frame_duration = self.config.frame_duration_ms  # ms
         self.frame_size = int(self.rate * self.frame_duration / 1000)
         
+        # 先頭/末尾パディング用バッファ（最小実装）
+        self.pre_speech_samples = int(self.rate * getattr(self.config, 'pre_speech_padding_ms', 300) / 1000)
+        self.post_speech_samples = int(self.rate * getattr(self.config, 'post_speech_padding_ms', 150) / 1000)
+        self.pre_speech_buffer = collections.deque(maxlen=max(1, self.pre_speech_samples))
+        self.silence_tail_buffer = collections.deque(maxlen=max(1, self.post_speech_samples))
+        
         # 音声バッファ（max_durationに合わせる）
         # 推奨設定（25秒）
         self.audio_buffer = collections.deque(maxlen=int(self.rate * self.config.max_duration))
@@ -86,6 +92,7 @@ class RealtimeTranscriber:
         self.speech_counter = 0
         self.silence_counter = 0
         self.audio_data_list = []
+        self.in_speech = False
         
         # sounddeviceの遅延インポート
         self.sd = None
@@ -178,9 +185,15 @@ class RealtimeTranscriber:
         if self.is_recording:
             # 音声データを取得
             audio_data = indata[:, 0]  # 最初のチャンネルのみ使用
+            audio_data = audio_data.flatten()
             
             # VADで音声検出（リアルタイム処理）
             if len(audio_data) >= self.frame_size:
+                # 先にプリロールのスナップショット（立ち上がりで付与）
+                pre_snapshot = None
+                if self.pre_speech_samples > 0 and len(self.pre_speech_buffer) > 0:
+                    pre_snapshot = np.array(self.pre_speech_buffer, dtype=np.float32)
+
                 frame = audio_data[:self.frame_size]
                 frame_int16 = (frame * 32767).astype(np.int16)
                 is_speech = self.vad.is_speech(frame_int16.tobytes(), self.rate)
@@ -193,20 +206,30 @@ class RealtimeTranscriber:
                     level_bar = "█" * min(int(level * 20), 20)
                     print(f"\r音声レベル: {level_bar:<20} {level:6.3f}", end="", flush=True)
                 
-                # 音声レベル閾値チェックを追加
-                level_ok = level >= self.config.min_audio_level
+                # 音声レベル閾値（VADがTrueのときは無視）
+                level_ok = (level >= self.config.min_audio_level) or is_speech
                 
                 if is_speech and level_ok:
+                    # 音声開始時に先頭パディングを付与
+                    if not self.in_speech:
+                        if pre_snapshot is not None and len(pre_snapshot) > 0:
+                            self.audio_data_list.append(pre_snapshot)
+                        self.in_speech = True
+                        self.silence_tail_buffer.clear()
+
                     # 音声を検出（VAD=True かつ 音声レベル十分）
                     self.speech_counter += 1
                     self.silence_counter = 0
-                    self.audio_data_list.append(audio_data.flatten())
+                    self.audio_data_list.append(audio_data)
                     
                     if self.config.show_debug:
                         print(f"\r音声検出: レベル={level:.3f}, VAD={is_speech}, レベルOK={level_ok}, カウンタ={self.speech_counter}", end="", flush=True)
                 else:
                     # VAD=False または 音声レベル不足 → 音声として扱わない
                     self.silence_counter += 1
+                    # 末尾パディング用にサイレンスを保持（音声区間後のみ）
+                    if self.in_speech and self.post_speech_samples > 0:
+                        self.silence_tail_buffer.extend(audio_data)
                     # 音声データを追加しない（ノイズ除去）
                     
                     if self.config.show_debug:
@@ -217,7 +240,7 @@ class RealtimeTranscriber:
                     
                     # 無音継続でセグメント終了
                     # ReazonSpeech（RNN-T）はWhisperの25秒制限がないため、無音継続時間のみで分割
-                    if self.silence_counter > self.config.pause_threshold:
+                    if self.in_speech and self.silence_counter > self.config.pause_threshold:
                         
                         # 最小音声継続時間のチェック
                         if self.speech_counter >= self.config.phrase_threshold:
@@ -225,13 +248,28 @@ class RealtimeTranscriber:
                                 print(f"\n音声セグメント終了: 音声カウンタ={self.speech_counter}, 無音カウンタ={self.silence_counter}, フレーム数={len(self.audio_data_list)}")
                             
                             # 音声セグメントを処理（別スレッドで実行）
-                            audio_segment = np.concatenate(self.audio_data_list)
+                            if len(self.audio_data_list) > 0:
+                                audio_segment = np.concatenate(self.audio_data_list)
+                            else:
+                                audio_segment = np.array([], dtype=np.float32)
+                            # 末尾パディング付与
+                            if self.post_speech_samples > 0 and len(self.silence_tail_buffer) > 0:
+                                tail = np.array(self.silence_tail_buffer, dtype=np.float32)
+                                if len(tail) > self.post_speech_samples:
+                                    tail = tail[:self.post_speech_samples]
+                                audio_segment = np.concatenate([audio_segment, tail])
                             self._process_audio_segment_async(audio_segment)
                         
                         # リセット
                         self.speech_counter = 0
                         self.silence_counter = 0
                         self.audio_data_list = []
+                        self.in_speech = False
+                        self.silence_tail_buffer.clear()
+
+                # プリロール: 判定後に先読みバッファへ格納（重複回避のため）
+                if self.pre_speech_samples > 0:
+                    self.pre_speech_buffer.extend(audio_data)
     
     def process_audio(self):
         """音声処理スレッド（現在は不要）"""
