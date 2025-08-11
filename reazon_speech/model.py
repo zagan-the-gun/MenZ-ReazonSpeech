@@ -106,6 +106,30 @@ class ReazonSpeechModel:
             
             # 推論
             with torch.no_grad():
+                # CUDAでは前処理経路を安定化するため、一時WAV経由のtranscribeを優先
+                is_cuda = isinstance(self.config.device, str) and self.config.device.startswith("cuda")
+                if is_cuda:
+                    try:
+                        import tempfile
+                        import soundfile as sf
+                        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
+                            sf.write(temp_file.name, audio_segment, self.config.sample_rate)
+                            result = self.model.transcribe(paths2audio_files=[temp_file.name])
+                        import os
+                        try:
+                            os.unlink(temp_file.name)
+                        except Exception:
+                            pass
+                        if result and len(result) > 0:
+                            if hasattr(result[0], 'text'):
+                                return result[0].text
+                            elif isinstance(result[0], str):
+                                return result[0]
+                            else:
+                                return str(result[0])
+                    except Exception as e:
+                        if self.config.show_debug:
+                            print(f"CUDA優先経路(transcribe via file)でエラー: {e}")
                 # 方法1: NeMoのtranscribeメソッドを使用（キーワード引数で）
                 if hasattr(self.model, 'transcribe') and callable(self.model.transcribe):
                     try:
