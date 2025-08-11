@@ -35,6 +35,8 @@ class ModelConfig:
     phrase_threshold: int = 2               # 最小音声継続時間（0.1秒単位）YukariWhisper互換
     max_duration: float = 30.0              # 最大音声継続時間（秒）
     min_audio_level: float = 0.00005        # 音声レベル最小閾値（後方互換性）
+    pre_speech_padding_ms: int = 300        # 発話開始前に付与する先頭パディング（ミリ秒）
+    post_speech_padding_ms: int = 150       # 発話終了時に付与する末尾パディング（ミリ秒）
     
 
     
@@ -157,6 +159,8 @@ class ModelConfig:
                 'pause_threshold': ('pause_threshold', int),
                 'phrase_threshold': ('phrase_threshold', int),
                 'max_duration': ('max_duration', float),
+                'pre_speech_padding_ms': ('pre_speech_padding_ms', int),
+                'post_speech_padding_ms': ('post_speech_padding_ms', int),
             },
             'silero_vad': {
                 'threshold': ('silero_threshold', float),
@@ -231,6 +235,8 @@ class ModelConfig:
             'pause_threshold': str(self.pause_threshold),
             'phrase_threshold': str(self.phrase_threshold),
             'max_duration': str(self.max_duration),
+            'pre_speech_padding_ms': str(self.pre_speech_padding_ms),
+            'post_speech_padding_ms': str(self.post_speech_padding_ms),
         }
         
         # Silero VAD設定
@@ -286,6 +292,8 @@ class ModelConfig:
             "phrase_threshold": self.phrase_threshold,
             "max_duration": self.max_duration,
             "min_audio_level": self.min_audio_level,
+            "pre_speech_padding_ms": self.pre_speech_padding_ms,
+            "post_speech_padding_ms": self.post_speech_padding_ms,
             "websocket_enabled": self.websocket_enabled,
             "websocket_port": self.websocket_port,
             "websocket_host": self.websocket_host,
