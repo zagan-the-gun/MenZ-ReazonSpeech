@@ -100,6 +100,79 @@ class RealtimeTranscriber:
         # デバッグ用の時間管理
         self.start_time = None
         
+    def ingest_audio_block(self, audio_block: np.ndarray) -> None:
+        """外部からの音声ブロック(float32, mono, 16kHz)を取り込み処理する
+        Args:
+            audio_block: 1次元 float32 [-1,1] 配列（任意長）
+        """
+        if audio_block is None or len(audio_block) == 0:
+            return
+        # フレームサイズで分割し、audio_callback相当の処理を適用
+        offset = 0
+        n = len(audio_block)
+        while offset < n:
+            end = min(offset + self.frame_size, n)
+            frame = audio_block[offset:end]
+            offset = end
+
+            # フレーム不足は次回に回す（ここでは破棄せず、簡易にゼロパディング）
+            if len(frame) < self.frame_size:
+                padded = np.zeros(self.frame_size, dtype=np.float32)
+                padded[:len(frame)] = frame.astype(np.float32)
+                frame = padded
+
+            # VADとしきい値判定
+            frame = frame.astype(np.float32)
+            frame_int16 = (frame * 32767).astype(np.int16)
+            is_speech = self.vad.is_speech(frame_int16.tobytes(), self.rate)
+
+            level = np.sqrt(np.mean(frame ** 2)) if len(frame) > 0 else 0.0
+            level_ok = (level >= self.config.min_audio_level) or is_speech
+
+            # 音声状態機械
+            if is_speech and level_ok:
+                if not self.in_speech:
+                    # 立ち上がり時に先頭パディングを付与
+                    if self.pre_speech_samples > 0 and len(self.pre_speech_buffer) > 0:
+                        pre_snapshot = np.array(self.pre_speech_buffer, dtype=np.float32)
+                        self.audio_data_list.append(pre_snapshot)
+                    self.in_speech = True
+                    self.silence_tail_buffer.clear()
+
+                self.speech_counter += 1
+                self.silence_counter = 0
+                self.audio_data_list.append(frame)
+            else:
+                self.silence_counter += 1
+                if self.in_speech and self.post_speech_samples > 0:
+                    self.silence_tail_buffer.extend(frame)
+
+                # セグメント終了判定
+                if self.in_speech and self.silence_counter > self.config.pause_threshold:
+                    # 最小音声継続時間のチェック
+                    if self.speech_counter >= self.config.phrase_threshold:
+                        if len(self.audio_data_list) > 0:
+                            audio_segment = np.concatenate(self.audio_data_list)
+                        else:
+                            audio_segment = np.array([], dtype=np.float32)
+                        if self.post_speech_samples > 0 and len(self.silence_tail_buffer) > 0:
+                            tail = np.array(self.silence_tail_buffer, dtype=np.float32)
+                            if len(tail) > self.post_speech_samples:
+                                tail = tail[:self.post_speech_samples]
+                            audio_segment = np.concatenate([audio_segment, tail])
+                        self._process_audio_segment_async(audio_segment)
+
+                    # リセット
+                    self.speech_counter = 0
+                    self.silence_counter = 0
+                    self.audio_data_list = []
+                    self.in_speech = False
+                    self.silence_tail_buffer.clear()
+
+            # プリロール更新
+            if self.pre_speech_samples > 0:
+                self.pre_speech_buffer.extend(frame)
+
     def _get_sounddevice(self):
         """sounddeviceの遅延インポート"""
         if self.sd is None:
@@ -241,31 +314,14 @@ class RealtimeTranscriber:
                     # 無音継続でセグメント終了
                     # ReazonSpeech（RNN-T）はWhisperの25秒制限がないため、無音継続時間のみで分割
                     if self.in_speech and self.silence_counter > self.config.pause_threshold:
-                        
-                        # 最小音声継続時間のチェック
                         if self.speech_counter >= self.config.phrase_threshold:
                             if self.config.show_debug:
                                 print(f"\n音声セグメント終了: 音声カウンタ={self.speech_counter}, 無音カウンタ={self.silence_counter}, フレーム数={len(self.audio_data_list)}")
-                            
-                            # 音声セグメントを処理（別スレッドで実行）
-                            if len(self.audio_data_list) > 0:
-                                audio_segment = np.concatenate(self.audio_data_list)
-                            else:
-                                audio_segment = np.array([], dtype=np.float32)
-                            # 末尾パディング付与
-                            if self.post_speech_samples > 0 and len(self.silence_tail_buffer) > 0:
-                                tail = np.array(self.silence_tail_buffer, dtype=np.float32)
-                                if len(tail) > self.post_speech_samples:
-                                    tail = tail[:self.post_speech_samples]
-                                audio_segment = np.concatenate([audio_segment, tail])
-                            self._process_audio_segment_async(audio_segment)
-                        
-                        # リセット
-                        self.speech_counter = 0
-                        self.silence_counter = 0
-                        self.audio_data_list = []
-                        self.in_speech = False
-                        self.silence_tail_buffer.clear()
+                            # 無音区切りでの確定
+                            self.finalize_from_silence()
+                        else:
+                            # 長さ不足: リセットのみ
+                            self._reset_segment_state()
 
                 # プリロール: 判定後に先読みバッファへ格納（重複回避のため）
                 if self.pre_speech_samples > 0:
@@ -284,6 +340,50 @@ class RealtimeTranscriber:
         
         # 別スレッドで音声認識を実行
         threading.Thread(target=self._process_audio_segment, args=(audio_segment,), daemon=True).start()
+
+    def _finalize_current_segment_core(self, include_tail_padding: bool, enforce_min_duration: bool) -> None:
+        """現在の収集中セグメントを確定して処理し、内部状態をリセットする（内部共通）。
+        Args:
+            include_tail_padding: 末尾パディング（silence_tail_buffer）を付与するか
+            enforce_min_duration: 最小長チェックを有効にするか
+        """
+        if len(self.audio_data_list) == 0:
+            self._reset_segment_state()
+            return
+
+        audio_segment = np.concatenate(self.audio_data_list)
+        if include_tail_padding and self.post_speech_samples > 0 and len(self.silence_tail_buffer) > 0:
+            tail = np.array(self.silence_tail_buffer, dtype=np.float32)
+            if len(tail) > self.post_speech_samples:
+                tail = tail[:self.post_speech_samples]
+            audio_segment = np.concatenate([audio_segment, tail])
+
+        if enforce_min_duration:
+            duration = len(audio_segment) / max(1, self.rate)
+            min_duration = self.config.phrase_threshold * 0.1
+            if duration < min_duration:
+                self._reset_segment_state()
+                return
+
+        # ASR処理
+        self._process_audio_segment_async(audio_segment)
+        self._reset_segment_state()
+
+    def finalize_from_flush(self) -> None:
+        """flushによる確定: 末尾パディングなし・最小長チェックなしで即確定"""
+        self._finalize_current_segment_core(include_tail_padding=False, enforce_min_duration=False)
+
+    def finalize_from_silence(self) -> None:
+        """無音区切りによる確定: 末尾パディングあり・最小長チェックあり"""
+        self._finalize_current_segment_core(include_tail_padding=True, enforce_min_duration=True)
+
+    def _reset_segment_state(self) -> None:
+        """発話セグメント関連の内部状態をリセットする"""
+        self.speech_counter = 0
+        self.silence_counter = 0
+        self.audio_data_list = []
+        self.in_speech = False
+        self.silence_tail_buffer.clear()
     
     def _process_audio_segment(self, audio_segment):
         """音声セグメントの処理"""

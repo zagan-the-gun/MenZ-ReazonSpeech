@@ -13,6 +13,57 @@ NeMoを使用してReazonSpeechを実行するための環境です。Windowsと
 
 ゆかりねっとやゆかコネNEOなどのアプリケーションにリアルタイムで音声認識結果を送信できます。
 
+## 新機能：WebSocket音声受信（Unity→Python）
+
+Unity から 16kHz/モノラルの PCM16LE を WebSocket 経由で本ツールに送ることで、同一PC上で低遅延 ASR を実現します。
+
+### プロトコル仕様（簡易）
+- **URL**: `ws://localhost:60001`
+- **サブプロトコル**: `pcm16.v1`
+- **フレーム**: 1 WebSocketバイナリ = 1 チャンク
+  - 形式: PCM16LE（16kHz / モノ）
+  - 推奨チャンク: 20–30ms（例: 16kHzなら 320–480 サンプル → 640–960 バイト）
+- **圧縮**: なし（permessage-deflate 無効推奨）
+- **任意テキスト制御（JSON）**:
+  - 送信: `{ "type": "hello", "format":"pcm16", "sample_rate":16000, "channels":1, "chunk_samples":480 }`
+  - 応答: `{ "type": "ok", "version": "pcm16.v1", "sample_rate":16000, "channels":1 }`
+
+#### 制御メッセージ: flush
+- 用途: クライアントが「発話終了」と判断したタイミングで即時確定させる
+- 送信（テキストJSON）:
+  ```json
+  {"type":"flush"}
+  ```
+- 挙動:
+  - 受信時点までにバッファされた音声をその場で確定し、ASRを実行します
+  - 末尾パディング（post_speech_padding）は付与しません
+  - 最小長チェックは行いません（極短でも確定）
+  - バッファが空の場合は何もしません
+- 注意:
+  - flushを送らない場合は、無音継続が `pause_threshold` を超えた時点で自動的に確定します（従来動作）
+
+### 設定（config.ini）
+```ini
+[audio_ws]
+enabled = false      ; 受信を有効にする場合は true
+host = localhost     ; 同一PC運用のため localhost を推奨
+port = 60001         ; Unity は ws://localhost:60001 に接続
+```
+
+### 起動方法（受信サーバ）
+```bash
+python -m reazon_speech.main --audio-ws
+# 必要に応じて上書き
+# python -m reazon_speech.main --audio-ws --audio-ws-port 60001 --audio-ws-host localhost
+```
+
+### Unity側の送信要件
+- サンプルレート 16kHz、モノラル、PCM16LE
+- 1フレーム=1チャンクでバイナリ送信（20–30ms推奨）
+- サブプロトコル `pcm16.v1` を指定
+
+備考: WebSocket字幕送信（認識結果の外部配信）とは別機能です。音声は `[audio_ws]`、テキストは `[websocket]` で設定します。
+
 ## 必要な環境
 
 - Python 3.12（推奨）

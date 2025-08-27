@@ -44,9 +44,14 @@ class ModelConfig:
     
     # WebSocket設定
     websocket_enabled: bool = False   # WebSocket送信の有効/無効
-    websocket_port: int = 50000       # 送信先ポート（ゆかりねっと用）
     websocket_host: str = "localhost" # 送信先ホスト
+    websocket_port: int = 50001       # 送信先ポート
     text_type: int = 0                # 送信形式（0: ゆかりねっと, 1: ゆかコネNEO）
+    
+    # 音声受信(WebSocket)設定
+    audio_ws_enabled: bool = False    # 音声をWebSocketで受信する
+    audio_ws_host: str = "localhost"    # 受信サーバのバインドホスト
+    audio_ws_port: int = 60001        # 受信サーバのポート
     
     # 基本的なフィルタリング設定（品質向上用）
     min_length: int = 3               # 最小文字数フィルタ（ノイズ除去）
@@ -177,6 +182,11 @@ class ModelConfig:
                 'host': ('websocket_host', str),
                 'text_type': ('text_type', int),
             },
+            'audio_ws': {
+                'enabled': ('audio_ws_enabled', bool),
+                'host': ('audio_ws_host', str),
+                'port': ('audio_ws_port', int),
+            },
             'filtering': {
                 'min_length': ('min_length', int),
                 'exclude_whitespace_only': ('exclude_whitespace_only', bool),
@@ -262,6 +272,13 @@ class ModelConfig:
             'text_type': str(self.text_type)
         }
         
+        # 音声受信(WebSocket)設定
+        parser['audio_ws'] = {
+            'enabled': str(self.audio_ws_enabled),
+            'host': self.audio_ws_host,
+            'port': str(self.audio_ws_port)
+        }
+        
         # 基本的なフィルタリング設定
         parser['filtering'] = {
             'min_length': str(self.min_length),
@@ -303,6 +320,9 @@ class ModelConfig:
             "websocket_port": self.websocket_port,
             "websocket_host": self.websocket_host,
             "text_type": self.text_type,
+            "audio_ws_enabled": self.audio_ws_enabled,
+            "audio_ws_host": self.audio_ws_host,
+            "audio_ws_port": self.audio_ws_port,
             "min_length": self.min_length,
             "exclude_whitespace_only": self.exclude_whitespace_only,
             "show_debug": self.show_debug,

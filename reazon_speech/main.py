@@ -6,6 +6,7 @@ MenZ-ReazonSpeech メイン実行ファイル
 
 import sys
 import argparse
+import time
 from pathlib import Path
 
 # プロジェクトルートをパスに追加
@@ -119,7 +120,7 @@ def main():
         help="デフォルト設定ファイルを作成"
     )
     
-    # WebSocket関連引数
+    # WebSocketテキスト送信（既存）
     parser.add_argument(
         "--websocket",
         action="store_true",
@@ -145,6 +146,23 @@ def main():
         help="送信形式（0: ゆかりねっと, 1: ゆかコネNEO）"
     )
     
+    # WebSocket音声受信（新規）
+    parser.add_argument(
+        "--audio-ws",
+        action="store_true",
+        help="WebSocketで音声を受信してASRする"
+    )
+    parser.add_argument(
+        "--audio-ws-host",
+        type=str,
+        help="音声受信WSのバインドホスト（デフォルト: 0.0.0.0）"
+    )
+    parser.add_argument(
+        "--audio-ws-port",
+        type=int,
+        help="音声受信WSのポート（デフォルト: 60060）"
+    )
+
     args = parser.parse_args()
     
     # デフォルト設定ファイルの作成
@@ -196,7 +214,7 @@ def main():
     if args.show_level:
         config.show_level = True
     
-    # WebSocket設定の上書き
+    # WebSocketテキスト送信設定の上書き
     if args.websocket:
         config.websocket_enabled = True
     if args.websocket_port is not None:
@@ -205,6 +223,13 @@ def main():
         config.websocket_host = args.websocket_host
     if args.text_type is not None:
         config.text_type = args.text_type
+    # WebSocket音声受信設定の上書き
+    if args.audio_ws:
+        config.audio_ws_enabled = True
+    if args.audio_ws_host is not None:
+        config.audio_ws_host = args.audio_ws_host
+    if args.audio_ws_port is not None:
+        config.audio_ws_port = args.audio_ws_port
     
     if args.verbose:
         print("=== MenZ-ReazonSpeech リアルタイム音声認識 ===")
@@ -224,8 +249,30 @@ def main():
     
     try:
         # リアルタイム認識開始
-        with RealtimeTranscriber(config, callback=print_result, show_level=args.show_level) as transcriber:
-            transcriber.start_recording(args.device)
+        if getattr(config, 'audio_ws_enabled', False):
+            from reazon_speech.ws_audio_server import WebSocketAudioServer
+            with RealtimeTranscriber(config, callback=print_result, show_level=args.show_level) as transcriber:
+                # WebSocket音声受信サーバ起動
+                server = WebSocketAudioServer(config, transcriber)
+                server.start()
+                # 認識テキストの既存WebSocket送信も有効化
+                if transcriber.websocket_sender:
+                    transcriber.websocket_sender.start()
+                # RealtimeTranscriberからも直接broadcastできるように参照を持たせる
+                setattr(transcriber, 'ws_audio_server', server)
+                print("WebSocket音声受信モード。Unityから接続してください。Ctrl+Cで終了。")
+                try:
+                    while True:
+                        time.sleep(0.1)
+                except KeyboardInterrupt:
+                    pass
+                finally:
+                    if transcriber.websocket_sender:
+                        transcriber.websocket_sender.stop()
+                    server.stop()
+        else:
+            with RealtimeTranscriber(config, callback=print_result, show_level=args.show_level) as transcriber:
+                transcriber.start_recording(args.device)
     
     except KeyboardInterrupt:
         print("\n終了しました")
