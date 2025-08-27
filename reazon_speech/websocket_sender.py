@@ -69,9 +69,16 @@ class WebSocketSender:
                     message = self._format_message("MenZ-ReazonSpeech接続完了")
                     await self.websocket.send(message)
                     
-                    # 接続を維持
+                    # 接続を維持（閉塞を検知したら抜ける）
                     while not self.stop_event.is_set():
-                        await asyncio.sleep(1)
+                        try:
+                            # 1秒だけ閉塞を待ってタイムアウトしたら継続
+                            await asyncio.wait_for(self.websocket.wait_closed(), timeout=1.0)
+                            # 閉塞した
+                            break
+                        except asyncio.TimeoutError:
+                            # まだ開いている
+                            continue
                         
             except (asyncio.TimeoutError, ConnectionRefusedError, Exception) as e:
                 if self.config.show_debug:
