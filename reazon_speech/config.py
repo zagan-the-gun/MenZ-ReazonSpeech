@@ -47,6 +47,7 @@ class ModelConfig:
     websocket_host: str = "localhost" # 送信先ホスト
     websocket_port: int = 50001       # 送信先ポート
     text_type: int = 0                # 送信形式（0: ゆかりねっと, 1: ゆかコネNEO）
+    websocket_subtitle: str = ""      # 送信するJSONに含めるsubtitle識別子
     
     # 音声受信(WebSocket)設定
     audio_ws_enabled: bool = False    # 音声をWebSocketで受信する
@@ -181,6 +182,7 @@ class ModelConfig:
                 'port': ('websocket_port', int),
                 'host': ('websocket_host', str),
                 'text_type': ('text_type', int),
+                'subtitle': ('websocket_subtitle', str),
             },
             'audio_ws': {
                 'enabled': ('audio_ws_enabled', bool),
@@ -269,7 +271,8 @@ class ModelConfig:
             'enabled': str(self.websocket_enabled),
             'port': str(self.websocket_port),
             'host': self.websocket_host,
-            'text_type': str(self.text_type)
+            'text_type': str(self.text_type),
+            'subtitle': self.websocket_subtitle
         }
         
         # 音声受信(WebSocket)設定

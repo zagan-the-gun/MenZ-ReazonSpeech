@@ -190,6 +190,9 @@ class WebSocketSender:
             return text
         elif self.config.text_type == 1:
             # ゆかコネNEO形式（JSON）
-            return json.dumps({"text": text}, ensure_ascii=False)
+            payload = {"text": text}
+            if getattr(self.config, 'websocket_subtitle', None):
+                payload["subtitle"] = self.config.websocket_subtitle
+            return json.dumps(payload, ensure_ascii=False)
         else:
             return text
