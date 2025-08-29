@@ -117,9 +117,9 @@ class ReazonSpeechModel:
                             sf.write(temp_file.name, audio_segment, self.config.sample_rate)
                             if use_fp16:
                                 with torch.cuda.amp.autocast(dtype=torch.float16):
-                                    result = self.model.transcribe(paths2audio_files=[temp_file.name])
+                                    result = self.model.transcribe([temp_file.name])
                             else:
-                                result = self.model.transcribe(paths2audio_files=[temp_file.name])
+                                result = self.model.transcribe([temp_file.name])
                         import os
                         try:
                             os.unlink(temp_file.name)
@@ -207,7 +207,7 @@ class ReazonSpeechModel:
                         sf.write(temp_file.name, audio_segment, self.config.sample_rate)
                         
                         # ファイルパスを使って文字起こし
-                        result = self.model.transcribe(paths2audio_files=[temp_file.name])
+                        result = self.model.transcribe([temp_file.name])
                         
                         # ファイルを削除
                         import os
