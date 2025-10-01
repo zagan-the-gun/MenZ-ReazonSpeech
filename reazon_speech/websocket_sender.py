@@ -191,8 +191,19 @@ class WebSocketSender:
         elif self.config.text_type == 1:
             # ゆかコネNEO形式（JSON）
             payload = {"text": text}
-            if getattr(self.config, 'websocket_subtitle', None):
-                payload["subtitle"] = self.config.websocket_subtitle
+            return json.dumps(payload, ensure_ascii=False)
+        elif self.config.text_type == 2:
+            # MCP形式（Model Context Protocol - JSON-RPC 2.0）
+            payload = {
+                "jsonrpc": "2.0",
+                "method": "notifications/subtitle",
+                "params": {
+                    "text": text,
+                    "speaker": getattr(self.config, 'websocket_speaker', 'zagan'),
+                    "type": "subtitle",
+                    "language": "ja"  # 日本語専用モデルのため固定値
+                }
+            }
             return json.dumps(payload, ensure_ascii=False)
         else:
             return text

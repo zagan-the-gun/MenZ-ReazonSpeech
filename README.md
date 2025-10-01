@@ -278,13 +278,38 @@ python main.py
 enabled = true
 port = 50000
 host = localhost
-text_type = 0
+text_type = 2
+speaker = zagan
 ```
 
 ### 対応形式
 
 - **text_type = 0**: ゆかりねっと形式（プレーンテキスト）
 - **text_type = 1**: ゆかコネNEO形式（JSON）
+- **text_type = 2**: MCP形式（Model Context Protocol - JSON-RPC 2.0準拠）
+
+### MCP形式について
+
+MCP（Model Context Protocol）は、JSON-RPC 2.0に準拠した標準的なメッセージングプロトコルです。
+
+**送信される形式:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "notifications/subtitle",
+  "params": {
+    "text": "認識されたテキスト",
+    "speaker": "zagan",
+    "type": "subtitle",
+    "language": "ja"
+  }
+}
+```
+
+**設定項目:**
+- `speaker`: 話者識別子（例: zagan, menz, speaker_1）
+
+**注意:** `language`は日本語専用モデルのため`"ja"`に固定されています。
 
 ### ゆかりねっとでの設定
 
