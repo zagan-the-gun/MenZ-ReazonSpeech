@@ -51,7 +51,7 @@ class ModelConfig:
     
     # 音声受信(WebSocket)設定
     audio_ws_enabled: bool = False    # 音声をWebSocketで受信する
-    audio_ws_host: str = "localhost"    # 受信サーバのバインドホスト
+    audio_ws_host: str = "0.0.0.0"    # 受信サーバのバインドホスト（全インターフェース）
     audio_ws_port: int = 60001        # 受信サーバのポート
     
     # 基本的なフィルタリング設定（品質向上用）
