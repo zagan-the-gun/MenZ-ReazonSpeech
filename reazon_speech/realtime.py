@@ -13,7 +13,8 @@ import collections
 from .model import ReazonSpeechModel
 from .config import ModelConfig
 from .utils import AudioProcessor, filter_text
-from .websocket_sender import WebSocketSender
+# WebSocketSender は mcp_client.py に統合されました
+# from .websocket_sender import WebSocketSender
 
 
 class RealtimeTranscriber:
